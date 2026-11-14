@@ -2,6 +2,13 @@
 import { SUITS, RL, RN, NAME, val, other, byRank, cardName, short, fullDeck, shuffled } from './cards.js';
 import { scoreHand, pegScore } from './scoring.js';
 import { compDiscard, compPeg } from './ai.js';
+import { generateLane } from './lane.js';
+import { createRoom, createWalk } from './scenes.js';
+import { initAudio, sfx, setMusic, setSound, settings } from './sound.js';
+
+const room = createRoom(document.getElementById('room'));
+const walk = createWalk(document.getElementById('walk'));
+let lane = null;
 
 let S, gen = 0;
 const later = (fn, ms) => { const g = gen; setTimeout(() => { if (g === gen) fn(); }, ms); };
@@ -12,8 +19,10 @@ function addPts(who,pts,reason){
  if(!pts)return false;
  S.score[who]=Math.min(121,S.score[who]+pts);
  log(`${NAME[who]}: ${reason} for ${pts}`);
- startTick();
- if(S.score[who]>=121){S.phase='over';S.winner=who;log(`${NAME[who]} ${who==='p'?'reach':'reaches'} home at 121`);render();return true;}
+ sfx('score',pts);
+ startTick();syncRoom();
+ if(S.score[who]>=121){S.phase='over';S.winner=who;log(`${NAME[who]} ${who==='p'?'reach':'reaches'} home at 121`);render();
+  later(()=>openWalk(`${S.winner==='p'?'You win':'Winnie wins'}, ${S.score.p} to ${S.score.c}`,'See the final table'),1400);return true;}
  return false;
 }
 function pop(text,sel,who,delay=0){
@@ -27,9 +36,14 @@ function pop(text,sel,who,delay=0){
   document.getElementById('fx').appendChild(d);setTimeout(()=>d.remove(),1700);
  });},delay);
 }
-function newGame(){gen++;S={score:{p:0,c:0},disp:{p:0,c:0},dealer:Math.random()<.5?'p':'c',log:[],round:0,phase:'',winner:null};buildTrack();log(`${NAME[S.dealer]} cut the lower card and ${S.dealer==='p'?'deal':'deals'} first`);startRound();}
+function syncRoom(){const lead=S.score.p>=S.score.c?'p':'c';room.setState(lane.biomeAt(Math.max(1,S.score[lead])),S.score.p-S.score.c);}
+async function openWalk(summary,finalText){
+ const g=gen,res=await walk.open(lane,S.from,{...S.score},summary,{seenForest:S.seenForest,finalText});
+ if(g!==gen)return;S.seenForest=res.seenForest;S.from={...S.score};
+}
+function newGame(){gen++;const seed=Math.floor(Math.random()*9000)+1000;lane=generateLane(seed);document.getElementById('seed').textContent=`Lane ${seed}`;S={seed,seenForest:false,from:{p:0,c:0},score:{p:0,c:0},disp:{p:0,c:0},dealer:Math.random()<.5?'p':'c',log:[],round:0,phase:'',winner:null};buildTrack();syncRoom();log(`${NAME[S.dealer]} cut the lower card and ${S.dealer==='p'?'deal':'deals'} first`);startRound();}
 function startRound(){
- S.round++;const d=shuffled();
+ S.round++;S.from={...S.score};const d=shuffled();
  S.deck=d;S.hand={p:d.splice(0,6).sort(byRank),c:d.splice(0,6).sort(byRank)};
  S.crib=[];S.starter=null;S.sel=[];S.peg=null;S.show=null;S.phase='discard';
  log(`Round ${S.round}. ${S.dealer==='p'?'Your':"Winnie's"} crib`);
@@ -41,7 +55,7 @@ function confirmDiscard(){
  const mine=S.hand.p.filter(c=>S.sel.includes(c.id));
  S.hand.p=S.hand.p.filter(c=>!S.sel.includes(c.id));
  S.hand.c=S.hand.c.filter(c=>!S.compDiscard.includes(c));
- S.crib=[...mine,...S.compDiscard];S.sel=[];
+ S.crib=[...mine,...S.compDiscard];S.sel=[];sfx('card');
  S.kept={p:[...S.hand.p],c:[...S.hand.c]};
  S.starter=S.deck.pop();S.phase='cut';
  log(`Starter: ${cardName(S.starter)}`);
@@ -53,7 +67,7 @@ const canPlay=w=>S.peg.hand[w].some(c=>S.peg.count+val(c)<=31);
 function resetCount(){const P=S.peg;P.spent+=P.pile.length;P.pile=[];P.count=0;P.seq=[];P.go={p:false,c:false};}
 function play(who,card){
  const P=S.peg;P.hand[who]=P.hand[who].filter(c=>c!==card);
- P.count+=val(card);P.seq.push(card);P.pile.push({card,who});P.last=who;P.fresh=card.id;
+ sfx('card');P.count+=val(card);P.seq.push(card);P.pile.push({card,who});P.last=who;P.fresh=card.id;
  log(`${NAME[who]} ${who==='p'?'play':'plays'} ${cardName(card)}. Count ${P.count}`);
  const items=pegScore(P.seq,P.count);
  P.turn=other(who);
@@ -76,14 +90,14 @@ function advance(){
   render();later(startShow,1400);return;
  }
  const t=P.turn;
- if(canPlay(t)){render();if(t==='c')later(()=>play('c',compPeg(S.peg)),900);return;}
+ if(canPlay(t)){render();if(t==='c'&&!P.cpu){P.cpu=true;later(()=>{P.cpu=false;if(S.phase==='peg'&&S.peg===P&&P.turn==='c'&&canPlay('c'))play('c',compPeg(P));},900);}return;}
  if(P.hand[t].length&&!P.go[t]){
   if(t==='p'){render();return;}
-  P.go.c=true;log('Winnie says Go');render();later(()=>resolveStuck('c'),900);return;
+  P.go.c=true;sfx('go');log('Winnie says Go');render();later(()=>resolveStuck('c'),900);return;
  }
  resolveStuck(t);
 }
-function sayGo(){const P=S.peg;P.go.p=true;log('You say Go');render();later(()=>resolveStuck('p'),400);}
+function sayGo(){const P=S.peg;P.go.p=true;sfx('go');log('You say Go');render();later(()=>resolveStuck('p'),400);}
 function startShow(){
  const nd=other(S.dealer),d=S.dealer;
  S.phase='show';S.show={step:-1,steps:[{who:nd,cards:S.kept[nd],crib:false},{who:d,cards:S.kept[d],crib:false},{who:d,cards:S.crib,crib:true}]};
@@ -91,18 +105,22 @@ function startShow(){
 }
 function nextShow(){
  const sh=S.show;sh.step++;
- if(sh.step>2){S.dealer=other(S.dealer);startRound();return;}
+ if(sh.step>2){
+  const gp=S.score.p-S.from.p,gc=S.score.c-S.from.c;
+  S.phase='walking';render();
+  openWalk(`Round ${S.round}: you scored ${gp}, Winnie scored ${gc}`).then(()=>{if(S.phase!=='walking')return;S.dealer=other(S.dealer);startRound();});
+  return;}
  const st=sh.steps[sh.step];st.res=scoreHand(st.cards,S.starter,st.crib);st.shown=0;st.run=0;st.done=false;
  render();
  if(!st.res.items.length){st.done=true;log(`${NAME[st.who]}: nothing in ${st.crib?'the crib':'hand'}`);later(render,300);return;}
- later(revealNext,700);
+ later(()=>revealNext(st),700);
 }
-function revealNext(){
- const st=S.show.steps[S.show.step];if(st.done)return;
+function revealNext(st){
+ if(S.phase!=='show'||!S.show||S.show.steps[S.show.step]!==st||st.done)return;
  const it=st.res.items[st.shown];st.shown++;st.run+=it.pts;
  render();pop(`+${it.pts} ${it.label}`,'.card.hl',st.who);
  if(addPts(st.who,it.pts,(st.crib?'Crib: ':'')+it.label))return;
- if(st.shown>=st.res.items.length){st.done=true;later(render,700);}else later(revealNext,950);
+ if(st.shown>=st.res.items.length){st.done=true;later(render,700);}else later(()=>revealNext(st),950);
 }
 function skipShow(){
  const st=S.show.steps[S.show.step];gen++;
@@ -120,15 +138,11 @@ function cardHTML(c,{btn=false,sel=false,dim=false,dis=false,hl=false,extra='',c
  return `<${tag} class="card${sel?' sel':''}${dim?' dim':''}${hl?' hl':''} ${cls}" style="color:${su.c};${extra}" ${attrs}><span class="rk"><b>${RL[c.r]}</b><svg viewBox="0 0 9 10" aria-hidden="true"><use href="#${su.id}"></use></svg></span><svg class="big" viewBox="0 0 9 10" aria-hidden="true"><use href="#${su.id}"></use></svg></${tag}>`;
 }
 const backHTML=(st='')=>`<div class="back" style="${st}" aria-hidden="true"><svg viewBox="0 0 9 10"><use href="#s-leaf"></use></svg></div>`;
-function buildTrack(){
- const lane=w=>`<div class="lane"><span class="who">${NAME[w]}</span><div class="bar"><div class="fill" id="fill-${w}" style="width:0;background:${w==='p'?'#C49464':'#9A7AA8'}"></div>${[30,60,90].map(m=>`<div class="mark" style="left:${m/121*100}%"></div>`).join('')}<div class="pawn" id="pawn-${w}" style="left:0;background:${w==='p'?'#FFD48A':'#C9A0D8'}"></div></div><span class="num" id="num-${w}">0</span></div>`;
- document.getElementById('track').innerHTML=lane('p')+lane('c')+`<div class="marks"><span></span><div class="scale">${[[30,'Tea room'],[60,'Bookshop'],[90,'Bandstand'],[121,'Home']].map(([m,n])=>`<span style="left:${Math.min(m/121*100,94)}%">${m} ${n}</span>`).join('')}</div><span></span></div>`;
-}
+function buildTrack(){for(const w of ['p','c'])document.getElementById('num-'+w).textContent='0';}
 function startTick(){
  if(tick)return;
  tick=setInterval(()=>{let moving=false;
   for(const w of ['p','c']){if(S.disp[w]<S.score[w]){S.disp[w]++;moving=true;const pc=S.disp[w]/121*100;
-   document.getElementById('fill-'+w).style.width=pc+'%';document.getElementById('pawn-'+w).style.left=pc+'%';
    const n=document.getElementById('num-'+w);n.textContent=S.disp[w];n.classList.remove('flash');void n.offsetWidth;n.classList.add('flash');}}
   if(!moving){clearInterval(tick);tick=null;}},110);
 }
@@ -173,6 +187,7 @@ function render(){
  let prompt='';
  if(ph==='discard')prompt=`Choose 2 cards for ${S.dealer==='p'?'your':"Winnie's"} crib`;
  else if(ph==='cut')prompt='Turning the starter';
+ else if(ph==='walking')prompt='Out on the lane...';
  else if(ph==='show')prompt=sst.crib?`Counting ${sst.who==='p'?'your':"Winnie's"} crib`:`Counting ${sst.who==='p'?'your':"Winnie's"} hand`;
  else if(ph==='peg'){if(P.turn==='p'){prompt=canPlay('p')?'Your turn: play a card':P.hand.p.length?(P.go.p?'Waiting for Winnie':"You can't play. Say Go"):'Out of cards';}else prompt="Winnie's turn";}
  let hand='';
@@ -200,4 +215,11 @@ document.getElementById('table').addEventListener('click',e=>{
  else if(S.phase==='peg'&&S.peg.turn==='p'){const c=S.peg.hand.p.find(x=>x.id===id);if(c&&S.peg.count+val(c)<=31)play('p',c);}
 });
 document.getElementById('newGame').addEventListener('click',newGame);
+document.addEventListener('pointerdown',()=>initAudio(),{once:true});
+document.addEventListener('keydown',()=>initAudio(),{once:true});
+for(const [id,fn,key] of [['musicBtn',setMusic,'music'],['soundBtn',setSound,'sound']]){
+ const b=document.getElementById(id);
+ b.addEventListener('click',()=>{initAudio();const on=!settings[key];fn(on);b.setAttribute('aria-pressed',on);b.textContent=`${key==='music'?'Music':'Sound'}: ${on?'on':'off'}`;});
+}
+window.__cc={get S(){return S},get lane(){return lane},nextShow,confirmDiscard,play,sayGo,openWalk};
 newGame();
