@@ -20,7 +20,7 @@ export const BIOMES = {
   meadow: {
     title: 'The meadow', line: 'Sheep, stone walls and a flask of tea.', surface: 'rug', rug: ['#C98272', '#E2AE9E', '#F2E4CC'], prop: 'tea',
     ground: '#8FB04A', patches: ['#9CBC54', '#82A040', '#A8C860'], ...DIRT,
-    tones: ['#6C9840', '#74A044', '#7CA848', '#86B04C', '#90B852'],
+    tones: ['#6E8E3E', '#7A9642', '#889C46', '#98A24C', '#A8A656'],
     pathTones: ['#7A5634', '#94693F', '#AC7E4E', '#C2945E', '#D4AA72'],
     decorate(ctx) {
       const { c, rng, area, obj, critter, grove, place, spot } = ctx;
@@ -32,11 +32,11 @@ export const BIOMES = {
         for (let k = 0; k < 18; k++) { const x = p[0] + rng.range(-12, 12), y = p[1] + rng.range(-6, 6); if (!ctx.near(x, y, 11)) { rect(c, x, y + 1, 1, 1, '#3E6A2E'); rect(c, x, y, 1, 1, rng() < 0.85 ? col : '#FFF4DC'); } }
         if (flies < 1 && rng() < 0.5) { flies++; critter({ kind: 'butterfly', x: p[0], y: p[1] }); }
       }
-      grassBlades(ctx, area * 25, ['#A8C868', '#5E8A3A', '#94BC58']);
+      grassBlades(ctx, area * 30, ['#C8B46A', '#6A7E3A', '#D8A050']);
       // groves and lone trees
       for (let g = 0; g < area * 0.3; g++) grove(rng.int(3, 6), 26, 13, (x, y) => obj(x, y, treeSprite(rng.pick(MEADOW_TREES), rng), TREE), [22, 26], 20);
       place(area * 0.35, 28, 40, (x, y) => obj(x, y, treeSprite(rng.pick(MEADOW_TREES), rng), TREE), [22, 26]);
-      for (let g = 0; g < area * 0.25; g++) grove(rng.int(2, 3), 14, 10, (x, y) => obj(x, y, bushSprite(rng.pick(['hawthorn', 'hawthorn', 'oak']), rng), BUSH), [14, 10]);
+      for (let g = 0; g < area * 0.25; g++) grove(rng.int(2, 3), 14, 10, (x, y) => obj(x, y, bushSprite(rng.pick(['hawthorn', 'bracken', 'fieldmaple', 'oakturn']), rng), BUSH), [14, 10]);
       place(area * 1.2, 12, 10, (x, y) => obj(x, y, tuftSprite(rng), { sway: 2 }), [6, 6], 50);
       place(area * 0.25, 22, 40, (x, y) => obj(x, y, sprite('hay', 20, 16, (cc) => A.hay(cc, -7, -8))), [16, 10]);
       place(area * 0.25, 14, 20, (x, y) => obj(x, y, sprite(`rock|${rng.int(0, 2)}`, 14, 12, (cc) => A.rock(cc, 0, -2))), [10, 6]);
@@ -53,14 +53,14 @@ export const BIOMES = {
   forest: {
     title: 'The forest', line: '', surface: 'slab', prop: 'mushrooms',
     ground: '#55702E', patches: ['#4A6428', '#607C36', '#3E5822'], ...DARK_DIRT,
-    tones: ['#3A5832', '#405E34', '#466636', '#4E6E3A', '#56763C'],
+    tones: ['#46502E', '#505A30', '#5C6034', '#686436', '#74683A'],
     pathTones: ['#4A3420', '#5E4228', '#745434', '#8A6440', '#9E7650'],
     decorate(ctx) {
       const { c, rng, W, t, b, area, obj, critter, grove, place } = ctx;
       // drifts of fallen leaves and moss
-      for (let i = 0; i < area * 2.5; i++) {
-        const cx = rng.range(0, W), cy = rng.range(t, b), col = rng.pick([['#8E5A2A', '#A87036', '#C49248'], ['#7A4422', '#94562E', '#B07440'], ['#6E8A3A', '#86A244']]);
-        for (let k = 0; k < 24; k++) { const x = cx + rng.range(-14, 14), y = cy + rng.range(-6, 6); rect(c, x, y, rng() < 0.5 ? 2 : 1, 1, rng.pick(col)); }
+      for (let i = 0; i < area * 6; i++) {
+        const cx = rng.range(0, W), cy = rng.range(t, b), col = rng.pick([['#B4602A', '#D07A34', '#E8A048'], ['#9A3E22', '#BC5430', '#D8784A'], ['#A07A24', '#C49A36', '#E0BE5A']]);
+        for (let k = 0; k < 34; k++) { const x = cx + rng.range(-14, 14), y = cy + rng.range(-6, 6); rect(c, x, y, rng() < 0.5 ? 2 : 1, 1, rng.pick(col)); }
       }
       grassBlades(ctx, area * 12, ['#5E7E3A', '#344E30', '#9A6A34']);
       // a clearing or two, kept open
@@ -71,7 +71,7 @@ export const BIOMES = {
         if (rng() < 0.2) for (let k = 0; k < 2; k++) { const fx = x + rng.range(-9, 9), fy = y + rng.range(1, 4); if (ctx.free(fx, fy)) obj(fx, fy, sprite(`fern|${rng.int(0, 2)}`, 12, 12, (cc, r) => A.fern(cc, 0, 0)), { sway: 2 }); } };
       place(area * 9, 15, 11, tree, [10, 8]);
       place(area * 4, 22, 11, tree, [10, 8], 30);
-      place(area * 0.6, 14, 14, (x, y) => obj(x, y, bushSprite(rng.pick(['hawthorn', 'bracken', 'bracken', 'oak']), rng), BUSH), [14, 10]);
+      place(area * 0.6, 14, 14, (x, y) => obj(x, y, bushSprite(rng.pick(['bracken', 'bracken', 'fieldmaple', 'hawthorn']), rng), BUSH), [14, 10]);
       for (const [cx, cy] of clear) {
         grove(rng.int(4, 7), 20, 6, (x, y) => obj(x, y, sprite(`mush|${rng.int(0, 3)}`, 14, 10, (cc, r) => A.mushrooms(cc, -3, -3, r)), { kind: 'mush' }), [8, 5], 12, [cx, cy]);
         if (rng() < 0.7) { const p = [cx + rng.range(-14, 14), cy + rng.range(-6, 6)]; if (ctx.spot(p[0], p[1], 14, [24, 8])) obj(p[0], p[1], sprite('log', 26, 14, (cc) => A.log(cc, -9, -4))); }
@@ -280,8 +280,8 @@ export const MIDDLE = ['forest', 'orchard', 'river', 'farm', 'moor', 'village', 
 export const ACTIVE = ['meadow', 'forest'];
 
 const TREE = { kind: 'tree', cover: true, sway: 1 }, BUSH = { kind: 'bush', cover: true };
-const MEADOW_TREES = ['oak', 'oak', 'oakturn', 'ash', 'beech', 'birch'];
-const FOREST_TREES = ['oak', 'beech', 'oakturn', 'beech', 'green', 'ash', 'oak'];
+const MEADOW_TREES = ['oakturn', 'beech', 'fieldmaple', 'birch', 'oak', 'cherry', 'sycamore', 'oakturn'];
+const FOREST_TREES = ['beech', 'oakturn', 'fieldmaple', 'beech', 'oak', 'cherry', 'sycamore', 'green', 'beech'];
 function treeSprite(set, rng) {
   const v = rng.int(0, 3), sc = rng.pick([0.95, 1.1, 1.25]);
   if (set === 'birch') return sprite(`birch|${v}|${sc}`, 30, 48, (c, r) => A.birch(c, 0, 0, sc, r));

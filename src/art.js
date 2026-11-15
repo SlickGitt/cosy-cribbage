@@ -4,12 +4,15 @@ import { rect, disc, oval, tri, sprite, shade, mix } from './pixel.js';
 // English autumn: mostly green still, turning olive, ochre, bronze and copper.
 export const TREE_SETS = {
   oak: ['#34452A', '#4C6234', '#6C8244', '#A2AE68'],
-  oakturn: ['#5A4C22', '#7C6A2E', '#A48C40', '#D0BA6E'],
-  beech: ['#6A3A1C', '#8E5228', '#B47238', '#DCA266'],
+  oakturn: ['#6A5420', '#94762A', '#BC983A', '#E2C66E'],
+  beech: ['#7A3A16', '#A45222', '#CC7432', '#ECA862'],
   ash: ['#4A5A2A', '#687C34', '#92A448', '#CCD07E'],
   birch: ['#7E6420', '#A8862C', '#CCAA44', '#EED888'],
   hawthorn: ['#2E4228', '#405A34', '#58764A', '#8AA46C'],
-  bracken: ['#6A3A1A', '#8A5226', '#AE7036', '#D29C5C'],
+  fieldmaple: ['#9A4A1A', '#C8682A', '#E89040', '#F8C478'],
+  cherry: ['#7E2A22', '#AA3E2A', '#D0603A', '#F09A6A'],
+  sycamore: ['#8A6418', '#BC8E24', '#E0B43C', '#F6DC84'],
+  bracken: ['#7A3A16', '#A45422', '#CC7834', '#EAAA60'],
   green: ['#2E5A3C', '#3F7A4E', '#5E9A62', '#9CCB82'],
   lime: ['#4A6A2E', '#62883A', '#82A64C', '#B4CC78'],
   // older sets kept for the other biomes
@@ -261,6 +264,6 @@ export function tallGrass(c, x, y, rng, dry = false) {
 // A clump of hedge for field edges.
 export function hedgeClump(c, x, y, rng) {
   oval(c, x + 2, y + 1, 7, 2, SHADOW);
-  canopy(c, [[x, y - 4, 5], [x - 4, y - 2, 4], [x + 4, y - 2, 4]], TREE_SETS[rng.pick(['hawthorn', 'hawthorn', 'oak'])], rng);
+  canopy(c, [[x, y - 4, 5], [x - 4, y - 2, 4], [x + 4, y - 2, 4]], TREE_SETS[rng.pick(['hawthorn', 'hawthorn', 'fieldmaple', 'bracken', 'oakturn'])], rng);
   if (rng() < 0.6) for (let i = 0; i < 4; i++) rect(c, x + rng.range(-5, 5), y + rng.range(-7, -1), 1, 1, rng.pick(['#B82A22', '#B82A22', '#F2F0E0']));
 }

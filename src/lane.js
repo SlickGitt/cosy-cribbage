@@ -236,7 +236,7 @@ export function generateLane(seed) {
   objects.sort((a, b) => a.y - b.y);
 
   // Leaf trail positions, revealed as walkers pass.
-  const leaves = holes.map((h, i) => ({ x: h.x + rng.range(-6, 6), y: h.y + rng.range(-5, 5), col: i < 40 ? rng.pick(['#D2B05A', '#C49A44']) : i < 80 ? rng.pick(['#B87A3A', '#A86A30']) : rng.pick(['#94502A', '#7E4424']) }));
+  const leaves = holes.map((h, i) => ({ x: h.x + rng.range(-6, 6), y: h.y + rng.range(-5, 5), col: i < 40 ? rng.pick(['#F0C050', '#E0A83A']) : i < 80 ? rng.pick(['#E0842E', '#D07030']) : rng.pick(['#C04A2A', '#A83A24']) }));
 
   const spotNear = (x0, y0) => { for (let i = 0; i < 40; i++) { const x = x0 + rng.range(-40, 40), y = y0 + rng.range(-20, 20); if (free(x, y)) return [x, y]; } return null; };
   return { seed, canvas, height, holes, segs, biomeAt, leaves, objects, critters, shafts, free, spotNear };

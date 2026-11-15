@@ -415,7 +415,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
       return;
     }
     o.shake = 0.6; sfx('rustle');
-    const cols = ['#B47238', '#C49A44', '#94502A', '#A88A3A', '#6C8244', '#8E5228'];
+    const cols = ['#D8702E', '#E8A040', '#B8442A', '#CC8A2E', '#9A4A20', '#E0B43C'];
     const n = o.kind === 'tree' ? 6 : 3, top = o.kind === 'tree' ? 24 : 9;
     for (let i = 0; i < n; i++) parts.push({ leaf: true, x: o.x + Math.random() * 18 - 9, y: o.y - top + Math.random() * 8, vx: Math.random() * 6 - 3, vy: 4, floor: o.y + Math.random() * 6, life: 3, max: 3, col: cols[Math.floor(Math.random() * cols.length)] });
     crit.flush(o);

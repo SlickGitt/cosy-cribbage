@@ -1,7 +1,7 @@
 // Weather particles drawn in art pixels. The slice ships falling leaves.
 import { makeRng, rect } from './pixel.js';
 
-const LEAF_COLS = ['#B47238', '#C49A44', '#94502A', '#A88A3A', '#7E6A2E'];
+const LEAF_COLS = ['#D8702E', '#E8A040', '#B8442A', '#CC8A2E', '#9A4A20'];
 
 export function makeLeaves(w, h, count, seed = 7) {
   const rng = makeRng(seed);
