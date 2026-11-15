@@ -31,6 +31,11 @@ then open http://localhost:8000.
 - `src/lane.js` lane generator
 - `src/biomes.js` biome table: ground, lane colours, scenery, rest stop surface and entering line
 - `src/scenery.js` art for the newer biomes
+- `src/ground.js` textured ground and lane
+- `src/sprites.js` baked, outlined scenery sprites
+- `src/critters.js` animals and what they do when clicked
+
+Style trial: only the meadow and forest are switched on (`ACTIVE` in `src/biomes.js`) while the new look is tested. Click sheep, cows, birds, rabbits, squirrels, butterflies, trees, bushes and mushrooms in the lane view.
 - `src/scene.js` the full-screen scene: rest stop mode and walk mode
 - `src/reststop.js` rest stop surfaces, seated walkers and lanterns
 - `src/weather.js` falling leaves

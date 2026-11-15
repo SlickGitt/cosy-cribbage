@@ -84,3 +84,28 @@ export function number(c, n, x, y, col) {
   });
   return s.length * 4 - 1;
 }
+
+// Blend two hex colours (t = 0 gives a, 1 gives b).
+export function mix(a, b, t) {
+  const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const A = p(a), B = p(b);
+  return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
+export const hexRGB = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+
+// 4x4 ordered dither thresholds, 0..1.
+const B4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+export const bayer = (x, y) => (B4[(y & 3) * 4 + (x & 3)] + 0.5) / 16;
+
+// Smooth value noise, seeded. n(x, y) returns 0..1; fbm adds a second octave.
+export function makeNoise(seed) {
+  const h = (x, y) => { let n = (x * 374761393 + y * 668265263 + seed * 2147483647) | 0; n = (n ^ (n >>> 13)) * 1274126177 | 0; return ((n ^ (n >>> 16)) >>> 0) / 4294967296; };
+  const s = (t) => t * t * (3 - 2 * t);
+  const n = (x, y) => {
+    const xi = Math.floor(x), yi = Math.floor(y), xf = s(x - xi), yf = s(y - yi);
+    const a = h(xi, yi), b = h(xi + 1, yi), c = h(xi, yi + 1), d = h(xi + 1, yi + 1);
+    return a + (b - a) * xf + (c - a) * yf + (a - b - c + d) * xf * yf;
+  };
+  n.fbm = (x, y) => n(x, y) * 0.65 + n(x * 2.3 + 17, y * 2.3 + 9) * 0.35;
+  return n;
+}

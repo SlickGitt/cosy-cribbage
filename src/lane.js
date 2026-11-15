@@ -3,7 +3,9 @@
 import { makeRng, rect, disc, oval, number } from './pixel.js';
 import * as A from './art.js';
 import * as S from './scenery.js';
-import { BIOMES, MIDDLE } from './biomes.js';
+import { BIOMES, MIDDLE, ACTIVE } from './biomes.js';
+import { paintGround, paintPath } from './ground.js';
+import { bake, sprite } from './sprites.js';
 
 export { BIOMES };
 export const W = 720;            // world width in art pixels; the lane winds through the middle
@@ -12,6 +14,14 @@ const SPACING = 13;              // distance between holes along the lane
 // Start in the meadow, finish on the village green, and walk through a shuffled
 // run of the other biomes in between (stretches of 10 to 17 holes).
 function planBiomes(rng) {
+  if (ACTIVE.length < 4) {
+    // trial mode: alternate the active biomes, starting and ending in the meadow
+    const segs = []; let h = 0, k = 0;
+    while (h <= 121) { const len = rng.int(11, 18), b = ACTIVE[k++ % ACTIVE.length]; segs.push({ biome: b, from: h, to: Math.min(121, h + len - 1) }); h += len; }
+    const last = segs[segs.length - 1];
+    if (last.biome !== 'meadow') { last.to = Math.max(last.from, 110); segs.push({ biome: 'meadow', from: last.to + 1, to: 121 }); }
+    return segs.filter((s) => s.from <= s.to);
+  }
   const order = MIDDLE.slice();
   for (let i = order.length - 1; i > 0; i--) { const j = rng.int(0, i); [order[i], order[j]] = [order[j], order[i]]; }
   const segs = [];
@@ -58,6 +68,9 @@ function buildPath(rng) {
   return { samples: samples.filter((s) => s[1] <= lastY + 40), holes };
 }
 
+const hedgeSprite = (v) => sprite(`hedge|${v}`, 22, 18, (c, r) => A.hedgeClump(c, 0, 0, r));
+const postSprite = () => sprite('post', 8, 16, (c) => { rect(c, -1, -9, 3, 10, '#6B3E26'); rect(c, -1, -9, 3, 1, '#9A6438'); });
+
 export function generateLane(seed) {
   const rng = makeRng(seed);
   const segs = planBiomes(rng);
@@ -80,15 +93,11 @@ export function generateLane(seed) {
     return [Math.round(top), Math.round(bot)];
   };
 
-  // Ground, with a dithered edge where biomes meet.
+  // Textured ground with wobbly, dithered seams between stretches.
+  const { edgeAt, edges } = paintGround(c, W, height, segs, band, BIOMES, seed);
   for (const seg of segs) {
     const B = BIOMES[seg.biome], [t, b] = band(seg);
-    rect(c, 0, t, W, b - t, B.ground);
-    for (let i = 0; i < (b - t) / 12; i++) oval(c, rng.range(0, W), rng.range(t, b), rng.int(8, 26), rng.int(3, 8), rng.pick(B.patches));
-  }
-  for (let k = 1; k < segs.length; k++) {
-    const [t] = band(segs[k]), up = BIOMES[segs[k - 1].biome].ground;
-    for (let y = t; y < t + 6; y++) for (let x = (y % 2); x < W; x += 2) if ((x + y) % 4 < 2 - (y - t) / 3) rect(c, x, y, 1, 1, up);
+    if (!B.tones) for (let i = 0; i < (b - t) / 12; i++) oval(c, rng.range(0, W), rng.range(t, b), rng.int(8, 26), rng.int(3, 8), rng.pick(B.patches));
   }
 
   const side = (i, off) => {
@@ -109,12 +118,31 @@ export function generateLane(seed) {
   const laneDist = (x, y) => { let d = 1e9; for (const s of samples) { if (Math.abs(s[1] - y) > 80) continue; d = Math.min(d, Math.hypot(s[0] - x, s[1] - y)); } return d; };
 
   // Standing things are queued and drawn after the lane, sorted by y.
-  const items = [], afterPath = [], occ = [];
+  const items = [], afterPath = [], occ = [], objects = [], critters = [], shafts = [];
   const add = (y, fn) => items.push([y, fn]);
+  // Live scenery: a baked sprite at a base point, drawn each frame in depth order.
+  const obj = (x, y, spr, o = {}) => { const ob = { x: Math.round(x), y: Math.round(y), s: spr, ph: rng.range(0, 6.28), shake: 0, ...o }; objects.push(ob); return ob; };
+  const critter = (spec) => critters.push(spec);
+  const free = (x, y) => !near(x, y, 12) && !blocked(x, y) && !occ.some((o) => x > o.x - 2 && x < o.x + o.w + 2 && y > o.y && y < o.y + o.h + 3);
   const hits = (r) => occ.some((o) => r.x < o.x + o.w && r.x + r.w > o.x && r.y < o.y + o.h && r.y + r.h > o.y);
+  // Hedgerows along the seams between stretches, with a gap for the lane.
+  edges.forEach((e, k) => {
+    const a = segs[k].biome, b2 = segs[k + 1].biome;
+    if (!BIOMES[a].tones || !BIOMES[b2].tones) return;
+    const lx = laneAt(e);
+    for (let x = lx - 230; x < lx + 230; x += 9) {
+      const y = edgeAt(k, x) + 2;
+      if (x < -6 || x > W + 6 || Math.abs(x - laneAt(y)) < 17 || blocked(x, y)) continue;
+      const ob = obj(x, y, hedgeSprite(rng.int(0, 5)), { kind: 'hedge', cover: true, sway: 0 });
+      occ.push({ x: x - 7, y: y - 10, w: 14, h: 10 });
+    }
+    for (const side of [-1, 1]) { const px = lx + side * 15, py = edgeAt(k, px) + 2; obj(px, py, postSprite(), { kind: 'post' }); }
+  });
+
   for (const seg of segs) {
     const B = BIOMES[seg.biome], [t, b] = band(seg);
-    const ctx = { c, rng, W, t, b, seg, area: (b - t) * W / 10000, add, laneAt, samples,
+    const ctx = { c, rng, W, t, b, seg, area: (b - t) * W / 10000, add, laneAt, samples, obj, critter, free, near,
+      shaft: (x, y) => shafts.push({ x, y, ph: rng.range(0, 6.28) }),
       after: (fn) => afterPath.push(fn), holeYs: holes.slice(seg.from, seg.to + 1).map((h) => h.y), water: null };
     // Is this footprint (w x h, standing on x, y) clear of the lane, signs, water and other things?
     ctx.spot = (x, y, pad, fp = [4, 4], maxD = Infinity) => {
@@ -130,8 +158,8 @@ export function generateLane(seed) {
     ctx.place = (n, pad, minD, fn, fp, maxD) => {
       const got = [];
       for (let tries = 0; got.length < n && tries < n * 60; tries++) {
-        const x = maxD ? laneAt(rng.range(t, b)) + rng.pick([-1, 1]) * rng.range(pad, pad + maxD) : rng.range(-6, W + 6);
-        const y = maxD ? rng.range(t + 4, b - 2) : rng.range(t + 4, b - 2);
+        const y = rng.range(t + 4, b - 2);
+        const x = maxD ? laneAt(y) + rng.pick([-1, 1]) * rng.range(pad, pad + maxD) : rng.range(-6, W + 6);
         if (got.some((p) => Math.hypot(p[0] - x, p[1] - y) < minD) || !ctx.spot(x, y, pad, fp, maxD)) continue;
         got.push([x, y]); add(y, () => fn(x, y));
       }
@@ -142,6 +170,17 @@ export function generateLane(seed) {
         if (x > 20 && x < W - 20 && ctx.spot(x, y, pad, fp, maxD)) return [x, y];
       }
       return null;
+    };
+    // A loose cluster: n things within radius r of a clear centre.
+    ctx.grove = (n, r, minD, fn, fp = [4, 4], pad = 16, centre) => {
+      const c0 = centre || ctx.spotNearLane(30, 120, [6, 6]) || [rng.range(0, W), rng.range(t, b)];
+      const got = [];
+      for (let tries = 0; got.length < n && tries < n * 30; tries++) {
+        const a = rng.range(0, 6.28), d = Math.sqrt(rng()) * r, x = c0[0] + Math.cos(a) * d, y = c0[1] + Math.sin(a) * d * 0.7;
+        if (got.some((p) => Math.hypot(p[0] - x, p[1] - y) < minD) || !ctx.spot(x, y, pad, fp)) continue;
+        got.push([x, y]); fn(x, y);
+      }
+      return c0;
     };
     // Ground-level patches, drawn now so the lane is laid over them.
     ctx.field = (w, h, kind) => {
@@ -171,22 +210,14 @@ export function generateLane(seed) {
     B.decorate(ctx);
   }
 
-  // The lane itself, coloured per biome, then peg holes.
-  const pathColours = (y) => {
+  // The lane: textured dirt over everything drawn so far.
+  const pathTones = (y) => {
     let best = 0, bd = 1e9;
     holes.forEach((h, i) => { const d = Math.abs(h.y - y); if (d < bd) { bd = d; best = i; } });
-    return BIOMES[holes[best].biome];
+    const B = BIOMES[holes[best].biome];
+    return B.pathTones || B.path;
   };
-  for (const [layer, r] of [[0, 9], [1, 7], [2, 3]]) {
-    for (let i = 0; i < samples.length; i += 1) {
-      const [x, y] = samples[i];
-      disc(c, x, y, r, pathColours(y).path[layer]);
-    }
-  }
-  for (let i = 0; i < samples.length * 1.5; i++) {
-    const s = samples[Math.floor(rng() * samples.length)];
-    rect(c, s[0] + rng.range(-6, 6), s[1] + rng.range(-6, 6), 1, 1, rng.pick(pathColours(s[1]).specks));
-  }
+  paintPath(c, W, height, samples, pathTones, seed);
   afterPath.forEach((fn) => fn());
   holes.forEach((h, i) => {
     if (i === 0) return;
@@ -196,14 +227,16 @@ export function generateLane(seed) {
   });
 
   // Landmarks: gate, numbered posts, home.
-  for (const [x, y, i] of signs) add(y + 1, () => A.signpost(c, x, y, i, number));
-  add(holes[0].y + 3, () => A.gate(c, holes[0].x, holes[0].y + 3));
-  add(home.y + 30, () => A.cottage(c, home.x, home.y + 30, rng));
+  for (const [x, y, i] of signs) obj(x, y + 1, bake(24, 26, (cc) => A.signpost(cc, 0, -1, i, number)), { kind: 'sign' });
+  obj(holes[0].x, holes[0].y + 3, bake(108, 22, (cc) => A.gate(cc, 0, 0)), { kind: 'gate' });
+  obj(home.x, home.y + 30, bake(66, 54, (cc) => A.cottage(cc, 0, 0, rng)), { kind: 'home', smoke: true });
 
   items.sort((a, b) => a[0] - b[0]).forEach(([, fn]) => fn());
+  objects.sort((a, b) => a.y - b.y);
 
   // Leaf trail positions, revealed as walkers pass.
   const leaves = holes.map((h, i) => ({ x: h.x + rng.range(-6, 6), y: h.y + rng.range(-5, 5), col: i < 40 ? rng.pick(['#FFC85A', '#F2B63C']) : i < 80 ? rng.pick(['#EE7E32', '#E8893F']) : rng.pick(['#D9402E', '#C83A2E']) }));
 
-  return { seed, canvas, height, holes, segs, biomeAt, leaves };
+  const spotNear = (x0, y0) => { for (let i = 0; i < 40; i++) { const x = x0 + rng.range(-40, 40), y = y0 + rng.range(-20, 20); if (free(x, y)) return [x, y]; } return null; };
+  return { seed, canvas, height, holes, segs, biomeAt, leaves, objects, critters, shafts, free, spotNear };
 }

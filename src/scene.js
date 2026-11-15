@@ -9,7 +9,8 @@ import { makeLeaves } from './weather.js';
 import { gingham, stumpTable, planks, straw, stone, cloth, stripes, prop, seated, lantern } from './reststop.js';
 import { BIOMES } from './biomes.js';
 import { makeRng } from './pixel.js';
-import { sfx } from './sound.js';
+import { sfx, initAudio } from './sound.js';
+import { makeCritters } from './critters.js';
 
 const LINES = {
   Fifteen: ['Fifteen two!', 'Fifteen, lovely.'], '31': ['Thirty-one!'], Pair: ['Ooh, a pair!', 'A pair for me.'],
@@ -35,7 +36,7 @@ export function createScene({ canvas, hud }) {
   let lane = null, scale = 4, aw = 0, ah = 0, camX = 0, camY = 0, last = 0, L = null;
   let mode = 'stop', surfaceAlpha = 1, stop = { from: { p: 0, c: 0 }, hole: 0, biome: 'meadow' }, banked = { p: 0, c: 0 };
   let pos = { p: 0, c: 0 }, target = { p: 0, c: 0 }, stepAt = { p: 0, c: 0 }, walkDone = null;
-  let surf = { key: '', cv: null }, deer = null, seenForest = false, visited = new Set(['meadow']), bannerTimer = 0, speechTimer = 0, leaves = null;
+  let surf = { key: '', cv: null }, crit = null, parts = [], light = null, smokeAt = 0, deer = null, seenForest = false, visited = new Set(['meadow']), bannerTimer = 0, speechTimer = 0, leaves = null;
 
   // ---- layout: where the lane, the surface, the hand and the action bar go on this screen.
   // u is the UI scale (1 at 1440x900); card widths are worked out here so the
@@ -208,7 +209,15 @@ export function createScene({ canvas, hud }) {
     const walkedTo = mode === 'walk' ? Math.max(pos.p, pos.c) : Math.max(stop.from.p, stop.from.c);
     for (let i = 1; i <= walkedTo; i++) { const Lf = lane.leaves[i]; rect(c, Lf.x - ix, Lf.y - iy, 2, 1, Lf.col); }
 
-    // lanterns for points banked this round
+    // everything standing, in depth order: scenery, animals, walkers, lanterns
+    const list = [], x0 = ix, y0 = iy, x1 = ix + aw, y1 = iy + ah;
+    for (const o of lane.objects) {
+      if (o.x + 34 < x0 || o.x - 34 > x1 || o.y - 60 > y1 || o.y + 12 < y0) continue;
+      list.push({ y: o.y, draw: () => drawObj(o, t, ix, iy, dt) });
+    }
+    const walkersAt = mode === 'walk' || surfaceAlpha < 0.6 ? ['p', 'c'].map((w) => { const [x, y] = holeXY(pos[w]); return [x + (w === 'c' ? -4 : 4), y]; }) : null;
+    crit.update(dt, t / 1000, walkersAt);
+    crit.drawables(x0, y0, x1, y1, list);
     for (const w of ['p', 'c']) {
       const show = mode === 'stop' && banked[w] > stop.from[w];
       ltags[w].hidden = !show;
@@ -216,24 +225,45 @@ export function createScene({ canvas, hud }) {
       for (let i = stop.from[w] + 1; i < banked[w]; i++) { const [hx, hy] = holeXY(i); rect(c, hx - 1 - ix, hy - 1 - iy, 2, 2, w === 'p' ? '#FFD48A' : '#D8B0E8'); }
       const [lx, ly] = holeXY(banked[w]);
       const side = w === 'p' ? 9 : -9;
-      lantern(c, lx + side - ix, ly + 2 - iy, w === 'p' ? '#F2B63C' : '#B07AC8');
+      list.push({ y: ly + 2, draw: () => lantern(c, lx + side - ix, ly + 2 - iy, w === 'p' ? '#F2B63C' : '#B07AC8') });
       ltags[w].textContent = `${w === 'p' ? 'You' : 'Winnie'} to ${banked[w]}`;
       placeIn(ltags[w], lx + side, ly - 14, L.free);
     }
     if (deer) {
       if (t > deer.until) { deer = null; bubble.hidden = true; }
-      else { A.deer(c, deer.x - ix, deer.y - iy); bubble.hidden = false; placeIn(bubble, deer.x + 6, deer.y - 12, mode === 'stop' ? L.free : { x: 0, y: L.top, w: L.W, h: L.H - L.top }); }
+      else { list.push({ y: deer.y + 6, draw: () => A.deer(c, deer.x - ix, deer.y - iy) }); bubble.hidden = false; placeIn(bubble, deer.x + 6, deer.y - 12, mode === 'stop' ? L.free : { x: 0, y: L.top, w: L.W, h: L.H - L.top }); }
     }
-    // walkers on the lane while walking
     for (const w of ['c', 'p']) {
-      const showW = mode === 'walk' || surfaceAlpha < 0.6;
+      const showW = !!walkersAt;
       tags[w].hidden = !showW;
       if (!showW) continue;
       const [x, y] = holeXY(pos[w]), ox = w === 'c' ? -4 : 4;
       const bob = pos[w] < target[w] ? Math.floor(t / 120) % 2 : Math.floor(t / 700 + (w === 'c' ? 1 : 0)) % 2;
-      A.walker(c, w, x + ox - ix, y - iy + 1, bob);
+      list.push({ y: y + 1, draw: () => A.walker(c, w, x + ox - ix, y - iy + 1, bob) });
       place(tags[w], x + ox, y - 23);
     }
+    list.sort((a, b) => a.y - b.y).forEach((d) => d.draw(c, ix, iy));
+
+    // particles: leaves shaken loose, puffs, chimney smoke
+    const home = lane.objects.find((o) => o.smoke);
+    if (home && t > smokeAt && Math.abs(home.y - (iy + ah / 2)) < ah) { smokeAt = t + 450; parts.push({ x: home.x + 9, y: home.y - 43, vx: 3, vy: -6, life: 3, max: 3, col: '#E8E2D8', size: 2 }); }
+    parts = parts.filter((p) => (p.life -= dt) > 0);
+    for (const p of parts) {
+      p.ph = (p.ph || 0) + dt * 4; p.x += (p.vx + (p.leaf ? Math.sin(p.ph) * 8 : 0)) * dt; p.y += p.vy * dt; if (p.leaf && p.y < p.floor) p.vy = Math.min(p.vy + 30 * dt, 14); else if (p.leaf) p.vy = 0;
+      c.globalAlpha = Math.min(1, p.life / Math.min(1, p.max)); rect(c, p.x - ix, p.y - iy, p.size || (p.leaf && Math.sin(p.ph) > 0 ? 2 : 1), p.leaf ? 1 : (p.size || 1), p.col); c.globalAlpha = 1;
+    }
+    // light: shafts in forest clearings, warm light from the top left, a soft vignette
+    c.save(); c.globalCompositeOperation = 'lighter';
+    for (const sh2 of lane.shafts) {
+      if (Math.abs(sh2.x - (ix + aw / 2)) > aw || Math.abs(sh2.y - (iy + ah / 2)) > ah) continue;
+      const a = 0.05 + Math.sin(t / 1300 + sh2.ph) * 0.02, x = sh2.x - ix, y = sh2.y - iy;
+      c.fillStyle = `rgba(255,236,170,${a.toFixed(3)})`;
+      for (const [o, w] of [[-10, 9], [6, 6]]) { c.beginPath(); c.moveTo(x + o - 30, y - 70); c.lineTo(x + o - 30 + w, y - 70); c.lineTo(x + o + w + 4, y + 6); c.lineTo(x + o + 4, y + 6); c.fill(); }
+    }
+    c.restore();
+    if (!light || light.width !== aw || light.height !== ah) light = makeLight(aw, ah);
+    c.drawImage(light, 0, 0);
+
     // the rest stop
     if (surfaceAlpha > 0.02) {
       c.save(); c.globalAlpha = surfaceAlpha;
@@ -250,15 +280,78 @@ export function createScene({ canvas, hud }) {
     requestAnimationFrame(frame);
   }
 
+  // A scenery sprite. Tall things sway at the top; a shaken tree rocks for a moment.
+  function drawObj(o, t, ix, iy, dt) {
+    const s = o.s, bx = o.x - s.ax - ix, by = o.y - s.ay - iy;
+    if (o.shake) o.shake = Math.max(0, o.shake - dt);
+    let dx = 0;
+    if (o.sway === 1) dx = Math.round(Math.sin(t / 900 + o.ph + o.x * 0.02) * 0.8);
+    else if (o.sway === 2) dx = Math.round(Math.sin(t / 650 + o.x * 0.08) * 0.9);
+    if (o.shake) dx = Math.round(Math.sin(t / 40) * 2 * Math.min(1, o.shake * 2));
+    if (!dx) { c.drawImage(s.cv, bx, by); return; }
+    const split = Math.max(1, s.ay - (o.sway === 2 ? 3 : 11)), w = s.cv.width, h = s.cv.height;
+    c.drawImage(s.cv, 0, split, w, h - split, bx, by + split, w, h - split);
+    c.drawImage(s.cv, 0, 0, w, split, bx + dx, by, w, split);
+  }
+  function makeLight(w, h) {
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const g = cv.getContext('2d');
+    const warm = g.createRadialGradient(w * 0.1, -h * 0.1, 0, w * 0.1, -h * 0.1, Math.max(w, h) * 1.1);
+    warm.addColorStop(0, 'rgba(255,214,140,0.16)'); warm.addColorStop(0.6, 'rgba(255,200,120,0.05)'); warm.addColorStop(1, 'rgba(255,200,120,0)');
+    g.fillStyle = warm; g.fillRect(0, 0, w, h);
+    const v = g.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.75);
+    v.addColorStop(0, 'rgba(40,22,48,0)'); v.addColorStop(1, 'rgba(40,22,48,0.32)');
+    g.fillStyle = v; g.fillRect(0, 0, w, h);
+    return cv;
+  }
+
+  // Clicking the scenery: animals react, trees rustle, mushrooms puff.
+  const CLICK = { tree: [11, 26], bush: [8, 10], hedge: [7, 10], mush: [6, 6] };
+  function hitAt(e) {
+    if (!lane || !crit) return null;
+    const ax = e.clientX / scale + camX, ay = e.clientY / scale + camY;
+    const cr = crit.hit(ax, ay);
+    if (cr) return { cr };
+    let best = null;
+    for (const o of lane.objects) {
+      const box = CLICK[o.kind]; if (!box) continue;
+      if (Math.abs(ax - o.x) < box[0] && ay < o.y + 2 && ay > o.y - box[1] && (!best || o.y > best.y)) best = o;
+    }
+    return best ? { o: best, ax, ay } : null;
+  }
+  canvas.addEventListener('pointermove', (e) => { const h = hitAt(e); canvas.style.cursor = h ? 'pointer' : ''; });
+  canvas.addEventListener('pointerdown', (e) => {
+    initAudio();
+    const h = hitAt(e); if (!h) return;
+    if (h.cr) { crit.poke(h.cr); return; }
+    const o = h.o;
+    if (o.kind === 'mush') {
+      sfx('pop');
+      for (let i = 0; i < 8; i++) parts.push({ x: o.x + Math.random() * 6 - 3, y: o.y - 3, vx: Math.random() * 16 - 8, vy: -Math.random() * 14 - 4, life: 0.9, max: 0.9, col: '#F2EEDC' });
+      return;
+    }
+    o.shake = 0.6; sfx('rustle');
+    const cols = ['#E07A3A', '#F2B63C', '#C2562B', '#E8893F', '#A8352B', '#8CB84C'];
+    const n = o.kind === 'tree' ? 6 : 3, top = o.kind === 'tree' ? 24 : 9;
+    for (let i = 0; i < n; i++) parts.push({ leaf: true, x: o.x + Math.random() * 18 - 9, y: o.y - top + Math.random() * 8, vx: Math.random() * 6 - 3, vy: 4, floor: o.y + Math.random() * 6, life: 3, max: 3, col: cols[Math.floor(Math.random() * cols.length)] });
+    crit.flush(o);
+  });
+  function sayAt(text, x, y) {
+    const d = document.createElement('div'); d.className = 'critter-say'; d.textContent = text;
+    hud.appendChild(d); place(d, x, y); setTimeout(() => d.remove(), 1300);
+  }
+
   window.addEventListener('resize', () => { layout(); });
   layout();
   requestAnimationFrame(frame);
 
   return {
     layout: () => L,
+    get debug() { return { crit, camX, camY, scale, lane }; },
     relayout: layout,
     reset(newLane) {
-      lane = newLane; deer = null; seenForest = false; visited = new Set(['meadow']); bubble.hidden = true; banner.hidden = true; speech.hidden = true;
+      lane = newLane; deer = null; seenForest = false; visited = new Set(['meadow']); parts = [];
+      crit = makeCritters(lane.critters, lane.objects, lane.seed, { say: sayAt, clear: (x, y) => lane.free(x, y), spot: (x, y) => lane.spotNear(x, y) }); bubble.hidden = true; banner.hidden = true; speech.hidden = true;
       pos = { p: 0, c: 0 }; target = { p: 0, c: 0 };
       this.setStop({ p: 0, c: 0 });
       const [x, y] = holeXY(0); camX = Math.max(0, x - L.free.w / 2 / scale); camY = Math.max(0, y - L.free.h / 2 / scale);

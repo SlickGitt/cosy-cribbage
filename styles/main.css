@@ -168,3 +168,9 @@ body.portrait .btn{height:2.5rem;font-size:1.22rem;padding:0 .8rem}
 body.portrait .fanhand .card{margin-left:calc(var(--ch)*-.22)}
 body.portrait .fanhand .card:first-child{margin-left:0}
 body.portrait .lane-banner{top:7rem}
+
+/* little reactions from animals you click */
+.critter-say{position:absolute;transform:translate(-50%,-100%);padding:.05rem .4rem;background:var(--paper);color:var(--ink);border:2px solid var(--ink);border-radius:.4rem;font-size:1rem;white-space:nowrap;pointer-events:none;animation:say 1.3s forwards}
+@keyframes say{0%{opacity:0;margin-top:.4rem}15%{opacity:1;margin-top:0}70%{opacity:1}100%{opacity:0;margin-top:-1rem}}
+.lane-tag[data-tag="c"]{transform:translate(calc(-100% + .3rem),-100%)}
+.lane-tag[data-tag="p"]{transform:translate(-.3rem,-100%)}

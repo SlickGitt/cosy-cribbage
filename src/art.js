@@ -1,5 +1,5 @@
 // Code-drawn pixel art: scenery, animals and walker sprites (top-down, art-pixel scale).
-import { rect, disc, oval, tri, sprite, shade } from './pixel.js';
+import { rect, disc, oval, tri, sprite, shade, mix } from './pixel.js';
 
 export const TREE_SETS = {
   orange: ['#B8462A', '#E8662E', '#FF9A44', '#FFD08A'],
@@ -11,27 +11,28 @@ export const TREE_SETS = {
 };
 const SHADOW = 'rgba(20,10,10,0.28)';
 
+// Lobed canopy lit from the top left: cool shadow, body, warm highlight, sparkle.
 function canopy(c, lobes, set, rng) {
   const [d, m, h, hh] = set;
-  const o = shade(d, 0.55);
-  for (const [x, y, r] of lobes) disc(c, x, y, r + 1, o);
-  for (const [x, y, r] of lobes) disc(c, x, y, r, d);
-  for (const [x, y, r] of lobes) disc(c, x - 1, y - 1, r - 2, m);
+  const sd = mix(d, '#2A2050', 0.35), hw = mix(h, '#FFE8A0', 0.25);
+  for (const [x, y, r] of lobes) disc(c, x, y, r, sd);
+  for (const [x, y, r] of lobes) disc(c, x - 0.5, y - 1, r - 1, d);
+  for (const [x, y, r] of lobes) disc(c, x - 1, y - 1.5, r - 2, m);
   for (const [x, y, r] of lobes) {
-    disc(c, x - r * 0.35, y - r * 0.4, Math.max(1, r * 0.3), h);
+    disc(c, x - r * 0.38, y - r * 0.45, Math.max(1, r * 0.38), h);
+    for (let k = 0; k < r; k++) { const a = rng.range(3.4, 5.6), rr = rng.range(r * 0.3, r * 0.85); rect(c, x + Math.cos(a) * rr, y + Math.sin(a) * rr, 1, 1, hw); }
+    for (let k = 0; k < r; k++) { const a = rng.range(0, 1.8), rr = rng.range(r * 0.4, r * 0.9); rect(c, x + Math.cos(a) * rr, y + Math.sin(a) * rr, rng() < 0.5 ? 2 : 1, 1, sd); }
     rect(c, x - r * 0.5, y - r * 0.6, 1, 1, hh);
-    rect(c, x + rng.range(-r * 0.3, r * 0.5), y + rng.range(0, r * 0.5), 2, 1, d);
-    rect(c, x + rng.range(-r * 0.6, r * 0.2), y + rng.range(-r * 0.2, r * 0.3), 1, 1, h);
   }
 }
 
 export function tree(c, x, y, setName, s, rng) {
   const set = TREE_SETS[setName];
   const r = Math.round(7 * s);
-  oval(c, x + 3, y + 2, r + 4, Math.max(2, Math.round(r / 3)), SHADOW);
-  rect(c, x - 2, y - 5, 4, 7, '#4A2E1C');
-  rect(c, x - 1, y - 4, 1, 5, '#7A4E32');
-  rect(c, x - 4, y + 1, 3, 1, '#4A2E1C'); rect(c, x + 2, y + 1, 3, 1, '#4A2E1C');
+  oval(c, x + 4, y + 2, r + 4, Math.max(2, Math.round(r / 3)), SHADOW);
+  rect(c, x - 2, y - 6, 4, 8, '#4A2E1C'); rect(c, x + 1, y - 6, 1, 8, '#3A2016');
+  rect(c, x - 1, y - 5, 1, 6, '#8A5E3A');
+  rect(c, x - 4, y + 1, 3, 1, '#4A2E1C'); rect(c, x + 2, y + 1, 3, 1, '#3A2016'); rect(c, x - 3, y, 1, 1, '#4A2E1C');
   const j = () => rng.range(-1, 1);
   canopy(c, [
     [x + j(), y - r - 3 + j(), r],
@@ -203,4 +204,18 @@ export function walker(c, who, x, y, bob = 0) {
   const w = WALKERS[who];
   oval(c, x, y, 5, 1, SHADOW);
   sprite(c, w.rows, w.pal, x - 5, y - 20 - bob);
+}
+
+// A tuft of tall grass that sways.
+export function tallGrass(c, x, y, rng, dry = false) {
+  const cols = dry ? ['#B89A4A', '#D4B45C', '#8A7A3A'] : ['#4E7A34', '#6A9A3E', '#8CB84C', '#B4D268'];
+  for (let i = 0; i < 6; i++) { const dx = i - 3 + rng.range(-0.4, 0.4), h = rng.int(3, 7); rect(c, x + dx, y - h, 1, h, cols[i % cols.length]); }
+  if (rng() < 0.4) rect(c, x + rng.int(-2, 2), y - 8, 1, 1, rng.pick(['#FFF4DC', '#F2B63C', '#E8603A']));
+}
+
+// A clump of hedge for field edges.
+export function hedgeClump(c, x, y, rng) {
+  oval(c, x + 2, y + 1, 7, 2, SHADOW);
+  canopy(c, [[x, y - 4, 5], [x - 4, y - 2, 4], [x + 4, y - 2, 4]], TREE_SETS[rng.pick(['green', 'green', 'lime'])], rng);
+  if (rng() < 0.5) for (let i = 0; i < 3; i++) rect(c, x + rng.range(-5, 5), y + rng.range(-7, -1), 1, 1, rng.pick(['#D0302A', '#F2F0E0']));
 }
