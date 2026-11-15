@@ -58,7 +58,38 @@ function pop(text,sel,who,delay=0){
   document.getElementById('fx').appendChild(d);setTimeout(()=>d.remove(),1700);
  });},delay);
 }
-function newGame(){gen++;const seed=Math.floor(Math.random()*9000)+1000;lane=generateLane(seed);scene.reset(lane);document.body.classList.remove('walking','finished');document.getElementById('seed').textContent=`Lane ${seed}`;S={seed,seenForest:false,from:{p:0,c:0},score:{p:0,c:0},disp:{p:0,c:0},dealer:Math.random()<.5?'p':'c',log:[],round:0,phase:'',winner:null};log(`${NAME[S.dealer]} cut the lower card and ${S.dealer==='p'?'deal':'deals'} first`);startRound();}
+function newGame(){gen++;const seed=Math.floor(Math.random()*9000)+1000;lane=generateLane(seed);scene.reset(lane);document.body.classList.remove('walking','finished');document.getElementById('seed').textContent=`Lane ${seed}`;S={seed,seenForest:false,from:{p:0,c:0},score:{p:0,c:0},disp:{p:0,c:0},dealer:null,log:[],round:0,phase:'',winner:null};startCut();}
+
+// Cut for deal: you pick a card from the spread, Winnie cuts hers, low card deals (aces low).
+function startCut(){
+ S.phase='cutdeal';S.cut={deck:shuffled(),p:null,c:null,done:false,tie:false};S.biome=scene.setStop(S.score);render();
+ later(()=>{if(S.phase==='cutdeal'&&!S.cut.p)scene.say('Cut for deal, dear. Low card deals.');},700);
+}
+function cutAt(i){
+ const C=S.cut;if(S.phase!=='cutdeal'||C.p)return;
+ C.p=C.deck.splice(i,1)[0];sfx('card');render();
+ later(()=>{
+  C.c=C.deck.splice(Math.floor(Math.random()*C.deck.length),1)[0];sfx('card');C.done=true;
+  if(C.p.r===C.c.r){C.tie=true;render();scene.say('Snap! We cut again.');later(()=>{S.cut={deck:shuffled(),p:null,c:null,done:false,tie:false};render();},1800);return;}
+  C.winner=C.p.r<C.c.r?'p':'c';S.dealer=C.winner;
+  log(`You cut ${cardName(C.p)}, Winnie cut ${cardName(C.c)}. ${C.winner==='p'?'You deal':'Winnie deals'} first`);
+  render();scene.say(C.winner==='c'?'Low card, so I deal.':'Your deal, dear.');
+ },900);
+}
+function renderCut(){
+ const C=S.cut;
+ $id('oppUI').innerHTML='';
+ const spot=(label,card,who)=>`<div class="spot"><span class="tag">${label}</span><div class="cutspot">${card?cardHTML(card,{hl:C.done&&!C.tie&&C.winner===who}):`<div class="empty cutslot"></div>`}</div></div>`;
+ const show=Math.min(C.deck.length,20);
+ const mid=!C.p?`<div class="spread" style="--n:${show}">${Array.from({length:show},(_,i)=>`<button class="cutbtn" data-cut="${i}" aria-label="Cut the deck here">${backHTML()}</button>`).join('')}</div>`
+  :C.done?`<div class="panel countbox"><span class="label">${C.tie?'Same rank':'Low card deals'}</span><b>${C.tie?'Snap!':C.winner==='p'?'You':'Winnie'}</b><span class="note">${C.tie?'Cut again':C.winner==='p'?'You deal first':'Winnie deals first'}</span></div>`:'';
+ $id('surfaceUI').innerHTML=`${spot("Winnie's cut",C.c,'c')}<div class="centre">${mid}</div>${spot('Your cut',C.p,'p')}`;
+ const prompt=!C.p?'Cut the deck for first deal':!C.done?'Winnie is cutting':C.tie?'A tie, cutting again':C.winner==='p'?'Your card is lower, you deal':"Winnie's card is lower, she deals";
+ $id('barUI').innerHTML=`<span class="prompt">${prompt}</span>${C.done&&!C.tie?'<button class="btn" data-act="deal">Deal</button>':''}`;
+ $id('handUI').innerHTML='';
+ $id('roundInfo').textContent='Cut for deal';
+ for(const w of ['p','c']){$id('score-'+w).textContent=S.score[w];$id('gain-'+w).textContent='';}
+}
 function startRound(){
  S.round++;S.from={...S.score};S.biome=scene.setStop(S.score);const d=shuffled();
  later(()=>{if(S.phase==='discard')scene.say(['Hmm, let me think...','Now then...','Ooh, decisions.','Righto.','Let me see, dear.'][S.round%5]);},700);
@@ -159,6 +190,7 @@ function cardHTML(c,{btn=false,sel=false,dim=false,dis=false,hl=false,extra='',c
 }
 const backHTML=(st='')=>`<div class="back" style="${st}" aria-hidden="true"><svg viewBox="0 0 9 10"><use href="#s-leaf"></use></svg></div>`;
 function render(){
+ if(S.phase==='cutdeal')return renderCut();
  const P=S.peg,ph=S.phase;
  const sst=ph==='show'?S.show.steps[S.show.step]:null;
  const hlIds=sst&&sst.shown&&!sst.done?sst.res.items[sst.shown-1].cards.map(c=>c.id):[];
@@ -224,6 +256,8 @@ function render(){
 document.addEventListener('click',e=>{
  const b=e.target.closest('#surfaceUI button,#handUI button,#barUI button,#oppUI button');if(!b||b.disabled)return;
  const act=b.dataset.act;
+ if(b.dataset.cut!==undefined)return cutAt(+b.dataset.cut);
+ if(act==='deal')return startRound();
  if(act==='discard')return confirmDiscard();
  if(act==='go')return sayGo();
  if(act==='next')return nextShow();

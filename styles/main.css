@@ -293,3 +293,12 @@ body.portrait .toasts{top:8.4rem;left:50%;transform:translateX(-50%);align-items
 .titlechip .title{font-family:Fell,Georgia,serif;font-size:1.55rem;letter-spacing:0;line-height:1.1;color:#F2D488}
 .lane-banner .big{font-family:Fell,Georgia,serif;font-size:2.1rem;letter-spacing:0;line-height:1.15}
 body.portrait .logo{font-size:2.7rem}
+
+/* cut for deal */
+.spread{display:flex;flex:1;max-width:calc(var(--cw)*5.4);padding-top:1rem}
+.cutbtn{flex:none;padding:0;border:0;background:none;cursor:pointer;margin-left:calc((100% - var(--cw)) / (var(--n) - 1) - var(--cw));transition:transform .12s}
+.cutbtn:first-child{margin-left:0}
+.cutbtn:hover,.cutbtn:focus-visible{transform:translateY(-.7rem)}
+.cutbtn:focus-visible{outline:3px solid #9AD0FF;outline-offset:2px;border-radius:.4rem}
+.cutslot{--w:var(--cw)}
+.cutspot{min-height:calc(var(--cw)*1.42 + 12px);display:flex;align-items:flex-end}
