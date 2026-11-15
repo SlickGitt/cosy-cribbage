@@ -10,7 +10,7 @@ const fresh = () => ({
   unlocked: [...STARTERS],
   feats: [],
   guide: [],
-  gear: { back: 'plum', rug: 'red', lantern: 'gold' },
+  gear: { back: 'plum', rug: 'tartan', lantern: 'gold' },
 });
 
 function read() {

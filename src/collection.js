@@ -3,7 +3,7 @@ import { save, persist } from './save.js';
 import { REWARDS, FEATS, TIERS, RANKS, GUIDE, owns, hasFeat, howTo, rankOf } from './unlocks.js';
 import { walkerCanvas } from './walkers.js';
 import { critterIcon } from './critters.js';
-import { gingham, tartan, patchwork, lantern } from './reststop.js';
+import { gingham, tartan, patchwork, welsh, lantern } from './reststop.js';
 import { LANTERNS } from './scene.js';
 import { makeRng } from './pixel.js';
 import * as A from './art.js';
@@ -18,7 +18,7 @@ export function rewardIcon(id) {
   if (!r) return el('span');
   if (r.kind === 'walker') return walkerCanvas(id);
   if (r.kind === 'back') { const b = el('span', 'mini-back'); b.dataset.back = v; b.innerHTML = '<svg viewBox="0 0 8 8" aria-hidden="true"><path d="M3 0h2v1H3zM2 1h4v1H2zM1 2h6v2H1zM2 4h4v1H2zM3 5h2v3H3z" fill="currentColor"/></svg>'; return b; }
-  if (r.kind === 'rug') return pxCanvas(28, 18, (c) => { const g = c; if (v === 'tartan') tartan(g, 0, 0, 28, 18); else if (v === 'patchwork') patchwork(g, 0, 0, 28, 18, makeRng(4)); else gingham(g, 0, 0, 28, 18, RUG_PAL[v]); }, 'rug-icon');
+  if (r.kind === 'rug') return pxCanvas(28, 18, (c) => { const g = c; if (v === 'tartan') tartan(g, 0, 0, 28, 18); else if (v === 'welsh') welsh(g, 0, 0, 28, 18); else if (v === 'patchwork') patchwork(g, 0, 0, 28, 18, makeRng(4)); else gingham(g, 0, 0, 28, 18, RUG_PAL[v]); }, 'rug-icon');
   if (r.kind === 'lantern') return pxCanvas(12, 16, (c) => lantern(c, 6, 14, LANTERNS[v]), 'lantern-icon');
   return el('span', 'secret-icon', '?');
 }

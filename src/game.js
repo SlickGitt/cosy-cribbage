@@ -61,7 +61,7 @@ function pop(text,sel,who,delay=0){
 function newGame(){gen++;const seed=Math.floor(Math.random()*9000)+1000;lane=generateLane(seed);scene.reset(lane);document.body.classList.remove('walking','finished');document.getElementById('seed').textContent=`Lane ${seed}`;S={seed,seenForest:false,from:{p:0,c:0},score:{p:0,c:0},disp:{p:0,c:0},dealer:Math.random()<.5?'p':'c',log:[],round:0,phase:'',winner:null};log(`${NAME[S.dealer]} cut the lower card and ${S.dealer==='p'?'deal':'deals'} first`);startRound();}
 function startRound(){
  S.round++;S.from={...S.score};S.biome=scene.setStop(S.score);const d=shuffled();
- later(()=>{if(S.phase==='discard')scene.say(['Hmm, let me think...','Now then...','Ooh, decisions.'][S.round%3]);},700);
+ later(()=>{if(S.phase==='discard')scene.say(['Hmm, let me think...','Now then...','Ooh, decisions.','Righto.','Let me see, dear.'][S.round%5]);},700);
  S.deck=d;S.hand={p:d.splice(0,6).sort(byRank),c:d.splice(0,6).sort(byRank)};
  S.crib=[];S.starter=null;S.sel=[];S.peg=null;S.show=null;S.phase='discard';
  log(`Round ${S.round}. ${S.dealer==='p'?'Your':"Winnie's"} crib`);

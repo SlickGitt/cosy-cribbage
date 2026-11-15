@@ -41,6 +41,32 @@ export function sfx(name, n = 1) {
     tone(330, t, 0.18, 'square', 0.05); tone(247, t + 0.1, 0.22, 'square', 0.05);
   } else if (name === 'step') {
     tone(180 + Math.random() * 40, t, 0.06, 'triangle', 0.05);
+  } else if (name === 'pheasant') {
+    // the cock pheasant's two harsh barks
+    [0, 0.16].forEach((d) => { const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(1150, t + d); o.frequency.exponentialRampToValueAtTime(820, t + d + 0.1);
+      f.type = 'bandpass'; f.frequency.value = 1500; f.Q.value = 3;
+      g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(0.2, t + d + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.11);
+      o.connect(f); f.connect(g); g.connect(sfxBus); o.start(t + d); o.stop(t + d + 0.13); });
+  } else if (name === 'chak') {
+    for (let i = 0; i < 3; i++) { const s = ctx.createBufferSource(); s.buffer = noiseBuffer(0.06); const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2400; f.Q.value = 4;
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.25, t + i * 0.09); g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.09 + 0.05); s.connect(f); f.connect(g); g.connect(sfxBus); s.start(t + i * 0.09); }
+  } else if (name === 'caw') {
+    const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(560, t); o.frequency.exponentialRampToValueAtTime(380, t + 0.32);
+    f.type = 'bandpass'; f.frequency.value = 1100; f.Q.value = 2.5;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
+    o.connect(f); f.connect(g); g.connect(sfxBus); o.start(t); o.stop(t + 0.36);
+  } else if (name === 'coo') {
+    // a wood pigeon, far off: coo-COO-coo, coo-coo
+    [[0, 0.32, 1], [0.38, 0.42, 1.12], [0.86, 0.26, 1], [1.4, 0.26, 1], [1.72, 0.3, 0.96]].forEach(([d, len, k]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(410 * k, t + d); o.frequency.linearRampToValueAtTime(380 * k, t + d + len);
+      g.gain.setValueAtTime(0.0001, t + d); g.gain.linearRampToValueAtTime(0.045, t + d + 0.08); g.gain.linearRampToValueAtTime(0.0001, t + d + len); o.connect(g); g.connect(sfxBus); o.start(t + d); o.stop(t + d + len + 0.02); });
+  } else if (name === 'bell') {
+    // a distant church bell, three strokes
+    [0, 1.3, 2.6].forEach((d) => [[220, 0.035], [440, 0.02], [528, 0.014], [880, 0.008]].forEach(([fq, v]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = fq;
+      g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(v, t + d + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 2.2); o.connect(g); g.connect(sfxBus); o.start(t + d); o.stop(t + d + 2.3); }));
   } else if (name === 'chime') {
     [523, 659, 784].forEach((f, i) => tone(f, t + i * 0.12, 0.8, 'sine', 0.1));
   } else if (name === 'baa') {

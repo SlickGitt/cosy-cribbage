@@ -6,16 +6,22 @@
 import { rect, oval } from './pixel.js';
 import * as A from './art.js';
 import { makeLeaves } from './weather.js';
-import { gingham, tartan, patchwork, stumpTable, planks, straw, stone, cloth, stripes, prop, seated, lantern } from './reststop.js';
+import { gingham, tartan, patchwork, welsh, stumpTable, planks, straw, stone, cloth, stripes, prop, seated, lantern } from './reststop.js';
 import { BIOMES } from './biomes.js';
 import { makeRng } from './pixel.js';
 import { sfx, initAudio } from './sound.js';
 import { makeCritters } from './critters.js';
 
 const LINES = {
-  Fifteen: ['Fifteen two!', 'Fifteen, lovely.'], '31': ['Thirty-one!'], Pair: ['Ooh, a pair!', 'A pair for me.'],
-  'Pair royal': ['Three of a kind!'], 'Double pair royal': ['Four! Goodness me.'], Go: ['That one’s mine.'],
-  'Last card': ['Last card, thank you.'], 'His heels': ['His heels, two for me!'], Run: ['A little run!'],
+  Fifteen: ['Fifteen two!', 'Fifteen, lovely.', 'Ooh, fifteen.'], '31': ['Thirty-one! Lovely.', 'Thirty-one, ta very much.'],
+  Pair: ['Ooh, a pair!', 'Snap!', 'A pair for me.'], 'Pair royal': ['Three of a kind! Cheeky.'], 'Double pair royal': ['Four of a kind! Well I never.'],
+  Go: ['That one’s mine, ta.'], 'Last card': ['Last card, ta very much.'], 'His heels': ['His heels! Two for me, dear.'],
+  Run: ['A little run, how nice.', 'Ooh, a run.'], 'His nobs': ['One for his nob.'],
+};
+// what Winnie says when you score well
+const MINE = {
+  '31': ['Oh, well played.', 'Thirty-one, very good.'], 'Pair royal': ['Ooh, you rascal.'], 'Double pair royal': ['Good heavens!'],
+  'His heels': ['Lucky you!'],
 };
 
 const RUGS = { red: ['#C98272', '#E2AE9E', '#F2E4CC'], blue: ['#6A8AB4', '#A8BCD8', '#EEF0F4'], mustard: ['#C89A3A', '#E2C478', '#F4E8C8'] };
@@ -39,7 +45,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
   let lane = null, scale = 4, aw = 0, ah = 0, camX = 0, camY = 0, last = 0, L = null;
   let mode = 'stop', surfaceAlpha = 1, stop = { from: { p: 0, c: 0 }, hole: 0, biome: 'meadow' }, banked = { p: 0, c: 0 };
   let pos = { p: 0, c: 0 }, target = { p: 0, c: 0 }, stepAt = { p: 0, c: 0 }, walkDone = null;
-  let gear = { rug: 'red', lantern: 'gold' }, surf = { key: '', cv: null }, titleY = -1, titleX = 0, looping = false, clouds = null, crit = null, parts = [], light = null, smokeAt = 0, deer = null, seenForest = false, visited = new Set(['meadow']), bannerTimer = 0, speechTimer = 0, leaves = null;
+  let gear = { rug: 'tartan', lantern: 'gold' }, raining = false, rainAmt = 0, drops = [], mist = null, mistAmt = 0, ambientAt = performance.now() + 30000, surf = { key: '', cv: null }, titleY = -1, titleX = 0, looping = false, clouds = null, crit = null, parts = [], light = null, smokeAt = 0, deer = null, seenForest = false, visited = new Set(['meadow']), bannerTimer = 0, speechTimer = 0, leaves = null;
 
   // ---- layout: where the lane, the surface, the hand and the action bar go on this screen.
   // u is the UI scale (1 at 1440x900); card widths are worked out here so the
@@ -128,6 +134,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
       const b = holes[h].biome;
       const B = BIOMES[b], first = !visited.has(b); visited.add(b);
       showBanner(who === 'p' ? 'You are entering' : 'Winnie is entering', B.title, first ? B.line : '');
+      if (first && b === 'forest') setTimeout(() => sfx('bell'), 900);
       if (b === 'forest' && !seenForest) {
         seenForest = true;
         const k = Math.min(121, h + 3), a = holes[Math.max(0, k - 1)], bb = holes[Math.min(121, k + 1)];
@@ -158,6 +165,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     else if (B.surface === 'cloth') cloth(c, x, y, w, h);
     else if (B.surface === 'stripes') stripes(c, x, y, w, h);
     else if (biome === 'meadow' && gear.rug === 'tartan') tartan(c, x, y, w, h);
+    else if (biome === 'meadow' && gear.rug === 'welsh') welsh(c, x, y, w, h);
     else if (biome === 'meadow' && gear.rug === 'patchwork') patchwork(c, x, y, w, h, rng);
     else gingham(c, x, y, w, h, biome === 'meadow' ? RUGS[gear.rug] || B.rug : B.rug);
     // something set down in the empty corner beside you
@@ -286,6 +294,13 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     if (!clouds) clouds = c.createPattern(makeClouds(lane.seed), 'repeat');
     const drift = t / 1000 * 4;
     c.save(); c.translate(-((ix - drift) % 512) - 512, -((iy - drift * 0.35) % 384) - 384); c.fillStyle = clouds; c.fillRect(0, 0, aw + 1024, ah + 768); c.restore();
+    const midY = iy + ah / 2, near = lane.holes.reduce((a, h) => (Math.abs(h.y - midY) < Math.abs(a.y - midY) ? h : a), lane.holes[0]), inForest = near.biome === 'forest';
+    mistAmt += ((inForest ? 1 : 0) - mistAmt) * Math.min(1, dt * 0.5);
+    if (mistAmt > 0.02) {
+      if (!mist) mist = c.createPattern(makeClouds(lane.seed + 77, [236, 238, 240], 0.9), 'repeat');
+      const md = t / 1000 * 2.5;
+      c.save(); c.globalAlpha = mistAmt * 0.8; c.translate(-((ix + md) % 512) - 512, -((iy) % 384) - 384); c.fillStyle = mist; c.fillRect(0, 0, aw + 1024, ah + 768); c.restore();
+    }
     if (!light || light.width !== aw || light.height !== ah) light = makeLight(aw, ah);
     c.drawImage(light, 0, 0);
 
@@ -302,6 +317,17 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
       c.restore();
     }
     leaves.update(dt); leaves.draw(c);
+    // drizzle on some rounds
+    rainAmt += ((raining ? 1 : 0) - rainAmt) * Math.min(1, dt * 0.6);
+    if (rainAmt > 0.02) {
+      if (drops.length < 140) for (let i = drops.length; i < 140; i++) drops.push({ x: Math.random() * aw, y: Math.random() * ah, v: 90 + Math.random() * 50 });
+      c.fillStyle = `rgba(200,212,228,${(0.4 * rainAmt).toFixed(3)})`;
+      const n = Math.round(drops.length * rainAmt);
+      for (let i = 0; i < n; i++) { const d = drops[i]; d.y += d.v * dt; d.x -= d.v * dt * 0.25; if (d.y > ah) { d.y = -3; d.x = Math.random() * (aw + 20); } c.fillRect(Math.round(d.x), Math.round(d.y), 1, 3); }
+      c.fillStyle = `rgba(110,120,140,${(0.07 * rainAmt).toFixed(3)})`; c.fillRect(0, 0, aw, ah);
+    }
+    // the odd wood pigeon or rook, now and then
+    if (t > ambientAt) { ambientAt = t + 50000 + Math.random() * 70000; if (lane && mode !== 'title') sfx(Math.random() < 0.6 ? 'coo' : 'caw'); }
     requestAnimationFrame(frame);
   }
 
@@ -327,7 +353,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
 
   // A tileable sheet of soft cloud shadows: clusters of round puffs, with the
   // soft edge dithered in two steps so it still reads as pixel art.
-  function makeClouds(seed) {
+  function makeClouds(seed, rgb = [24, 18, 52], k = 1) {
     const W2 = 512, H2 = 384, cv = document.createElement('canvas'); cv.width = W2; cv.height = H2;
     const g = cv.getContext('2d'), img = g.createImageData(W2, H2), d = img.data, rng = makeRng(seed * 13 + 1);
     const puffs = [];
@@ -345,7 +371,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
       if (a <= 0) continue;
       const th = (B[(y & 3) * 4 + (x & 3)] + 0.5) / 16, lvl = a > 0.35 ? 2 : a * 2.86 > th ? 1 : 0;
       if (!lvl) continue;
-      const i = (y * W2 + x) * 4; d[i] = 24; d[i + 1] = 18; d[i + 2] = 52; d[i + 3] = lvl === 2 ? 58 : 30;
+      const i = (y * W2 + x) * 4; d[i] = rgb[0]; d[i + 1] = rgb[1]; d[i + 2] = rgb[2]; d[i + 3] = Math.round((lvl === 2 ? 58 : 30) * k);
     }
     g.putImageData(img, 0, 0);
     return cv;
@@ -354,8 +380,9 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
     const g = cv.getContext('2d');
     const warm = g.createRadialGradient(w * 0.1, -h * 0.1, 0, w * 0.1, -h * 0.1, Math.max(w, h) * 1.1);
-    warm.addColorStop(0, 'rgba(255,214,140,0.16)'); warm.addColorStop(0.6, 'rgba(255,200,120,0.05)'); warm.addColorStop(1, 'rgba(255,200,120,0)');
+    warm.addColorStop(0, 'rgba(255,220,160,0.11)'); warm.addColorStop(0.6, 'rgba(255,210,150,0.03)'); warm.addColorStop(1, 'rgba(255,200,120,0)');
     g.fillStyle = warm; g.fillRect(0, 0, w, h);
+    g.fillStyle = 'rgba(190,198,210,0.06)'; g.fillRect(0, 0, w, h);
     const v = g.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.75);
     v.addColorStop(0, 'rgba(40,22,48,0)'); v.addColorStop(1, 'rgba(40,22,48,0.18)');
     g.fillStyle = v; g.fillRect(0, 0, w, h);
@@ -388,7 +415,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
       return;
     }
     o.shake = 0.6; sfx('rustle');
-    const cols = ['#E07A3A', '#F2B63C', '#C2562B', '#E8893F', '#A8352B', '#8CB84C'];
+    const cols = ['#B47238', '#C49A44', '#94502A', '#A88A3A', '#6C8244', '#8E5228'];
     const n = o.kind === 'tree' ? 6 : 3, top = o.kind === 'tree' ? 24 : 9;
     for (let i = 0; i < n; i++) parts.push({ leaf: true, x: o.x + Math.random() * 18 - 9, y: o.y - top + Math.random() * 8, vx: Math.random() * 6 - 3, vy: 4, floor: o.y + Math.random() * 6, life: 3, max: 3, col: cols[Math.floor(Math.random() * cols.length)] });
     crit.flush(o);
@@ -407,7 +434,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     get debug() { return { crit, camX, camY, scale, lane }; },
     relayout: layout,
     reset(newLane) {
-      lane = newLane; clouds = null; deer = null; seenForest = false; visited = new Set(['meadow']); parts = [];
+      lane = newLane; clouds = null; mist = null; deer = null; seenForest = false; visited = new Set(['meadow']); parts = [];
       crit = makeCritters(lane.critters, lane.objects, lane.seed, { found: onFind, say: sayAt, clear: (x, y) => lane.free(x, y), spot: (x, y) => lane.spotNear(x, y) }); bubble.hidden = true; banner.hidden = true; speech.hidden = true;
       pos = { p: 0, c: 0 }; target = { p: 0, c: 0 };
       this.setStop({ p: 0, c: 0 });
@@ -418,6 +445,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
       const hole = Math.round((from.p + from.c) / 2);
       stop = { from: { ...from }, hole, biome: lane.holes[Math.max(1, hole)].biome };
       banked = { ...from }; pos = { ...from }; target = { ...from }; mode = 'stop';
+      raining = from.p + from.c > 0 && Math.random() < 0.25;
       return stop.biome;
     },
     setBanked(score) { banked = { p: Math.min(121, score.p), c: Math.min(121, score.c) }; },
@@ -432,11 +460,11 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     // Menu backdrop: drift slowly down the lane with nobody on it.
     setGear(g) { gear = { ...gear, ...g }; surf.key = ''; },
     resume() { if (mode === 'title') { mode = 'stop'; camX = camY = -1; } },
-    title() { mode = 'title'; titleY = -1; camX = camY = -1; speech.hidden = true; banner.hidden = true; bubble.hidden = true; deer = null; },
+    title() { raining = false; mode = 'title'; titleY = -1; camX = camY = -1; speech.hidden = true; banner.hidden = true; bubble.hidden = true; deer = null; },
     react(label, who) {
-      if (who !== 'c') return;
       const key = label.startsWith('Run') ? 'Run' : label;
-      const opts = LINES[key]; if (opts) say(opts[Math.floor(Math.random() * opts.length)]);
+      const opts = (who === 'c' ? LINES : MINE)[key];
+      if (opts && (who === 'c' || Math.random() < 0.5)) say(opts[Math.floor(Math.random() * opts.length)]);
     },
   };
 }

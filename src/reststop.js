@@ -154,6 +154,14 @@ export function prop(c, kind, x, y, rng) {
   } else if (kind === 'cups') {
     for (const cx of [x, x + 9]) { rect(c, cx, y + 13, 7, 1, S); rect(c, cx, y + 4, 6, 9, '#F5EBDA'); rect(c, cx, y + 7, 6, 3, '#8A5A34'); rect(c, cx - 1, y + 3, 8, 1, '#3E3E4E'); }
     rect(c, x - 9, y + 5, 7, 8, '#C8A87A'); rect(c, x - 9, y + 5, 7, 1, '#A8885A');
+  } else if (kind === 'tea') {
+    // a tartan flask and a round tin of biscuits
+    rect(c, x + 13, y + 13, 8, 2, S);
+    rect(c, x + 14, y, 6, 13, '#2E4A6E'); rect(c, x + 14, y + 4, 6, 1, '#B8402E'); rect(c, x + 14, y + 8, 6, 1, '#B8402E'); rect(c, x + 16, y, 1, 13, '#4A6A8E');
+    rect(c, x + 14, y - 3, 6, 3, '#C8C0B0'); rect(c, x + 15, y - 4, 4, 1, '#E8E2D4');
+    rect(c, x - 9, y + 14, 16, 2, S);
+    oval(c, x - 1, y + 8, 8, 5, '#2E5A8E'); oval(c, x - 1, y + 7, 8, 4, '#3E6AA0'); oval(c, x - 1, y + 6, 6, 3, '#D4A23A'); oval(c, x - 1, y + 6, 4, 1, '#F2D488');
+    rect(c, x + 4, y + 10, 4, 2, '#C8945A'); rect(c, x + 5, y + 10, 1, 1, '#8A5A34');
   } else if (kind === 'mushrooms') {
     for (let i = 0; i < 3; i++) { const mx = x + i * 5, my = y + 8 + (i % 2) * 2; rect(c, mx, my + 1, 1, 3, '#F5EBDA'); rect(c, mx - 2, my, 5, 2, '#D0302A'); rect(c, mx - 1, my, 1, 1, '#FFFFFF'); }
   }
@@ -290,4 +298,20 @@ export function patchwork(c, x, y, w, h, rng) {
     for (let k = 0; k < ww; k += 2) rect(c, x + i + k, y + j, 1, 1, 'rgba(60,30,30,0.35)');
     for (let l = 0; l < hh; l += 2) rect(c, x + i, y + j + l, 1, 1, 'rgba(60,30,30,0.35)');
   }
+}
+
+// Welsh tapestry blanket: cream wool with bold bands and diamonds.
+export function welsh(c, x, y, w, h) {
+  rect(c, x + 3, y + 3, w, h, 'rgba(20,10,10,0.3)');
+  rect(c, x, y, w, h, '#E6DAC2');
+  c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip();
+  rect(c, x, y, w, 5, '#2E5A5A'); rect(c, x, y + h - 5, w, 5, '#2E5A5A'); rect(c, x, y + 5, w, 1, '#D4A23A'); rect(c, x, y + h - 6, w, 1, '#D4A23A');
+  for (let j = 14; j < h - 10; j += 16) for (let i = 8; i < w; i += 16) {
+    for (let k = 0; k < 6; k++) { rect(c, x + i - k, y + j - 6 + k, k * 2 + 1, 1, '#A8442E'); rect(c, x + i - k, y + j + 6 - k, k * 2 + 1, 1, '#A8442E'); }
+    for (let k = 0; k < 3; k++) { rect(c, x + i - k, y + j - 3 + k, k * 2 + 1, 1, '#D4A23A'); rect(c, x + i - k, y + j + 3 - k, k * 2 + 1, 1, '#D4A23A'); }
+    rect(c, x + i, y + j, 1, 1, '#2E5A5A');
+  }
+  for (let j = 0; j < h; j += 2) for (let i = (j / 2) % 2; i < w; i += 3) rect(c, x + i, y + j, 1, 1, 'rgba(90,70,50,0.08)');
+  c.restore();
+  for (let i = 0; i < w; i += 3) { rect(c, x + i, y - 2, 1, 2, '#E6DAC2'); rect(c, x + i + 1, y + h, 1, 2, '#E6DAC2'); }
 }

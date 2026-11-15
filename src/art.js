@@ -1,13 +1,22 @@
 // Code-drawn pixel art: scenery, animals and walker sprites (top-down, art-pixel scale).
 import { rect, disc, oval, tri, sprite, shade, mix } from './pixel.js';
 
+// English autumn: mostly green still, turning olive, ochre, bronze and copper.
 export const TREE_SETS = {
-  orange: ['#B8462A', '#E8662E', '#FF9A44', '#FFD08A'],
-  gold: ['#B07A1E', '#E8AE30', '#FFD45E', '#FFF0A0'],
-  red: ['#8E2A28', '#C83A2E', '#E8664A', '#FF9A7A'],
+  oak: ['#34452A', '#4C6234', '#6C8244', '#A2AE68'],
+  oakturn: ['#5A4C22', '#7C6A2E', '#A48C40', '#D0BA6E'],
+  beech: ['#6A3A1C', '#8E5228', '#B47238', '#DCA266'],
+  ash: ['#4A5A2A', '#687C34', '#92A448', '#CCD07E'],
+  birch: ['#7E6420', '#A8862C', '#CCAA44', '#EED888'],
+  hawthorn: ['#2E4228', '#405A34', '#58764A', '#8AA46C'],
+  bracken: ['#6A3A1A', '#8A5226', '#AE7036', '#D29C5C'],
   green: ['#2E5A3C', '#3F7A4E', '#5E9A62', '#9CCB82'],
-  lime: ['#4A7A2E', '#6A9E3A', '#8CC04E', '#C0E080'],
-  plum: ['#7A2E4A', '#A83E5E', '#D06080', '#F09AB0'],
+  lime: ['#4A6A2E', '#62883A', '#82A64C', '#B4CC78'],
+  // older sets kept for the other biomes
+  orange: ['#9A4A26', '#C0662E', '#DA8A44', '#F2BE84'],
+  gold: ['#9A7420', '#C69A34', '#E2BE58', '#F6E09A'],
+  red: ['#7E3424', '#A8442E', '#C8644A', '#E8967A'],
+  plum: ['#6A3444', '#8E4656', '#B0687A', '#D49AA6'],
 };
 const SHADOW = 'rgba(20,10,10,0.28)';
 
@@ -24,6 +33,15 @@ function canopy(c, lobes, set, rng) {
     for (let k = 0; k < r; k++) { const a = rng.range(0, 1.8), rr = rng.range(r * 0.4, r * 0.9); rect(c, x + Math.cos(a) * rr, y + Math.sin(a) * rr, rng() < 0.5 ? 2 : 1, 1, sd); }
     rect(c, x - r * 0.5, y - r * 0.6, 1, 1, hh);
   }
+}
+
+export function birch(c, x, y, s, rng) {
+  const r = Math.round(5.5 * s);
+  oval(c, x + 3, y + 2, r + 2, 2, SHADOW);
+  rect(c, x - 1, y - 14, 3, 15, '#ECE6DA'); rect(c, x + 1, y - 14, 1, 15, '#C8C0B4');
+  for (let k = 0; k < 5; k++) rect(c, x - 1 + (k % 2), y - 12 + k * 3, rng() < 0.5 ? 2 : 1, 1, '#2E2A2A');
+  const j = () => rng.range(-1, 1);
+  canopy(c, [[x + j(), y - 14 - r + j(), r], [x - r * 0.7, y - 11 - r * 0.4, Math.round(r * 0.7)], [x + r * 0.7, y - 12 - r * 0.5, Math.round(r * 0.7)], [x + j(), y - 16 - r * 1.4, Math.round(r * 0.6)]], TREE_SETS.birch, rng);
 }
 
 export function tree(c, x, y, setName, s, rng) {
@@ -105,11 +123,26 @@ export function hay(c, x, y) {
   rect(c, x, y, 14, 8, '#E8C86A'); rect(c, x, y + 2, 14, 1, '#C8A04A'); rect(c, x, y + 5, 14, 1, '#C8A04A'); rect(c, x + 2, y, 4, 1, '#FFF0A0');
 }
 
+// A short run of dry stone wall, n stones long, starting at (x, y).
 export function fence(c, x, y, n) {
-  for (let i = 0; i < n; i++) { rect(c, x + i * 8, y, 2, 7, '#9A6438'); rect(c, x + i * 8, y, 2, 1, '#C89A64'); }
-  rect(c, x - 1, y + 2, n * 8 - 5, 1, '#B07A48'); rect(c, x - 1, y + 4, n * 8 - 5, 1, '#B07A48');
+  const W = n * 8 - 2;
+  rect(c, x + 1, y + 7, W, 2, SHADOW);
+  rect(c, x, y + 1, W, 6, '#857C6C');
+  for (let j = 0; j < 3; j++) for (let i = (j % 2) * 2; i < W; i += 4) {
+    const g = ['#A49C8A', '#958D7C', '#B2AA98'][(i + j) % 3];
+    rect(c, x + i, y + 1 + j * 2, 3, 2, g); rect(c, x + i, y + 1 + j * 2, 3, 1, mix(g, '#FFFFFF', 0.18));
+  }
+  for (let i = 0; i < W; i += 2) rect(c, x + i, y, 1, 1, (i / 2) % 2 ? '#7A7262' : '#958D7C');
+  rect(c, x + 3, y + 2, 1, 1, '#9AAA5A'); rect(c, x + W - 5, y + 4, 2, 1, '#9AAA5A');
 }
 
+// A five-bar field gate, weathered grey wood.
+export function fiveBar(c, x, y, w = 22) {
+  rect(c, x + 1, y + 6, w, 1, SHADOW);
+  for (let i = 0; i < 5; i++) rect(c, x, y - 6 + i * 2.4, w, 1, i === 0 ? '#C8BCA4' : '#A89A84');
+  rect(c, x, y - 6, 1, 11, '#A89A84'); rect(c, x + w - 1, y - 6, 1, 11, '#A89A84');
+  for (let k = 0; k < w - 2; k++) rect(c, x + 1 + k, y + 4 - Math.round((k / (w - 2)) * 9), 1, 1, '#B8AC96');
+}
 export function sheep(c, x, y, flip) {
   oval(c, x + 4, y + 6, 6, 1, SHADOW);
   rect(c, x, y, 9, 5, '#FFF8EC'); rect(c, x + 1, y - 1, 3, 1, '#FFF8EC'); rect(c, x + 5, y - 1, 3, 1, '#FFF8EC'); rect(c, x + 1, y + 4, 7, 1, '#E0D6C6');
@@ -147,11 +180,12 @@ export function bird(c, x, y, col = '#5A3A2A') {
   rect(c, x, y, 3, 2, col); rect(c, x + 2, y - 1, 2, 2, col); rect(c, x + 4, y - 1, 1, 1, '#F2B63C');
 }
 
+// The start of the walk: an open five-bar gate between stretches of stone wall.
 export function gate(c, x, y) {
-  rect(c, x - 14, y - 3, 2, 9, '#6B3E26'); rect(c, x + 12, y - 3, 2, 9, '#6B3E26');
-  for (let i = 0; i < 3; i++) rect(c, x - 12, y - 1 + i * 2, 11, 1, '#E8C08A');
-  rect(c, x - 12, y - 1, 1, 5, '#E8C08A'); rect(c, x - 2, y - 1, 1, 5, '#E8C08A');
-  fence(c, x - 46, y - 1, 4); fence(c, x + 16, y - 1, 4);
+  rect(c, x - 14, y - 9, 3, 15, '#6E6250'); rect(c, x + 12, y - 9, 3, 15, '#6E6250');
+  rect(c, x - 14, y - 9, 3, 1, '#9A8E78'); rect(c, x + 12, y - 9, 3, 1, '#9A8E78');
+  fiveBar(c, x + 15, y - 1, 20);
+  fence(c, x - 50, y - 3, 5); fence(c, x + 37, y - 3, 3);
 }
 
 export function cottage(c, x, y, rng) {
@@ -162,14 +196,16 @@ export function cottage(c, x, y, rng) {
   rect(c, X, Y + 30, w, 4, '#9A9282');
   [0, 15, 30, w - 2].forEach((bx) => rect(c, X + bx, Y + 14, 2, 17, '#5A3622'));
   rect(c, X, Y + 14, w, 2, '#5A3622');
-  const roof = '#B8553A', rd = shade(roof, 0.75), rl = shade(roof, 1.2);
-  for (let j = 0; j < 5; j++) {
-    const inset = (5 - j) * 1.5;
-    rect(c, X - 4 + inset, Y + j * 3, w + 8 - inset * 2, 3, j % 2 ? roof : shade(roof, 0.9));
-    rect(c, X - 4 + inset, Y + j * 3 + 2, w + 8 - inset * 2, 1, rd);
-    for (let k = 0; k < 10; k++) rect(c, X - 2 + inset + k * 5 + (j % 2 ? 2 : 0), Y + j * 3, 1, 2, rd);
+  // thatch: thick, rounded, combed straw
+  const roof = '#C49A5A', rd = shade(roof, 0.72), rl = shade(roof, 1.18);
+  for (let j = 0; j < 6; j++) {
+    const inset = Math.max(0, (4 - j) * 2);
+    rect(c, X - 5 + inset, Y - 2 + j * 3, w + 10 - inset * 2, 3, j % 2 ? roof : shade(roof, 0.92));
+    for (let k = 0; k < w + 8 - inset * 2; k += 2) rect(c, X - 4 + inset + k, Y - 2 + j * 3 + ((k / 2) % 2), 1, 2, rd);
   }
-  rect(c, X + 3, Y - 1, w - 6, 1, rl);
+  rect(c, X - 5, Y + 15, w + 10, 2, rd);
+  for (let k = 0; k < w + 10; k += 3) rect(c, X - 5 + k, Y + 16, 2, 1, shade(roof, 0.6));
+  rect(c, X + 6, Y - 3, w - 12, 1, rl); rect(c, X + 2, Y - 1, w - 4, 1, rl);
   rect(c, X + w - 14, Y - 7, 5, 9, '#9A9282'); rect(c, X + w - 15, Y - 8, 7, 2, '#7A7262');
   for (const wx of [X + 4, X + w - 12]) {
     rect(c, wx - 1, Y + 18, 10, 8, '#5A3622'); rect(c, wx, Y + 19, 8, 6, '#FFD48A'); rect(c, wx + 3, Y + 19, 1, 6, '#5A3622');
@@ -180,12 +216,28 @@ export function cottage(c, x, y, rng) {
   rect(c, X + w / 2 - 5, Y + 32, 11, 2, '#C8C0B0');
 }
 
+// A small stone milestone with the number cut into it.
 export function signpost(c, x, y, n, numberFn) {
+  const w = String(n).length * 4 + 3, X = Math.round(x - w / 2);
+  rect(c, X + 2, y + 1, w, 2, SHADOW);
+  rect(c, X, y - 11, w, 12, '#A49C8A'); rect(c, X + 1, y - 12, w - 2, 1, '#A49C8A');
+  rect(c, X, y - 11, 1, 12, '#C2BAA8'); rect(c, X + w - 1, y - 11, 1, 12, '#857C6C'); rect(c, X, y, w, 1, '#857C6C');
+  rect(c, X + 1, y - 12, w - 2, 1, '#C2BAA8');
+  numberFn(c, n, X + 2, y - 9, '#4A4238');
+  rect(c, X + 1, y - 2, 2, 1, '#9AAA5A'); rect(c, X + w - 3, y - 1, 2, 1, '#7E8E4A');
+}
+
+// The footpath fingerpost at the start: a green arm pointing along the lane.
+export function fingerpost(c, x, y, left) {
   rect(c, x + 1, y + 1, 3, 1, SHADOW);
-  rect(c, x, y - 10, 2, 11, '#6B3E26');
-  rect(c, x - 7, y - 16, 16, 8, '#2B1D24'); rect(c, x - 6, y - 15, 14, 6, '#FFF4DC');
-  const w = String(n).length * 4 - 1;
-  numberFn(c, n, x + 1 - Math.floor(w / 2), y - 15 + 0.5, '#2B1D24');
+  rect(c, x, y - 22, 2, 23, '#2E4E36'); rect(c, x, y - 22, 1, 23, '#46705A');
+  const ax = left ? x - 17 : x + 2;
+  rect(c, ax, y - 20, 15, 6, '#2E5E3E'); rect(c, ax, y - 20, 15, 1, '#4E8A5E');
+  if (left) { rect(c, ax - 1, y - 19, 1, 4, '#2E5E3E'); rect(c, ax - 2, y - 18, 1, 2, '#2E5E3E'); }
+  else { rect(c, ax + 15, y - 19, 1, 4, '#2E5E3E'); rect(c, ax + 16, y - 18, 1, 2, '#2E5E3E'); }
+  for (let i = 0; i < 3; i++) rect(c, ax + 2 + i * 4, y - 18, 3, 1, '#F2EEDC');
+  for (let i = 0; i < 2; i++) rect(c, ax + 3 + i * 5, y - 16, 4, 1, '#F2EEDC');
+  rect(c, x - 1, y - 23, 4, 1, '#2E4E36');
 }
 
 // ---------- walker sprites live in walkers.js ----------
@@ -209,6 +261,6 @@ export function tallGrass(c, x, y, rng, dry = false) {
 // A clump of hedge for field edges.
 export function hedgeClump(c, x, y, rng) {
   oval(c, x + 2, y + 1, 7, 2, SHADOW);
-  canopy(c, [[x, y - 4, 5], [x - 4, y - 2, 4], [x + 4, y - 2, 4]], TREE_SETS[rng.pick(['green', 'green', 'lime'])], rng);
-  if (rng() < 0.5) for (let i = 0; i < 3; i++) rect(c, x + rng.range(-5, 5), y + rng.range(-7, -1), 1, 1, rng.pick(['#D0302A', '#F2F0E0']));
+  canopy(c, [[x, y - 4, 5], [x - 4, y - 2, 4], [x + 4, y - 2, 4]], TREE_SETS[rng.pick(['hawthorn', 'hawthorn', 'oak'])], rng);
+  if (rng() < 0.6) for (let i = 0; i < 4; i++) rect(c, x + rng.range(-5, 5), y + rng.range(-7, -1), 1, 1, rng.pick(['#B82A22', '#B82A22', '#F2F0E0']));
 }

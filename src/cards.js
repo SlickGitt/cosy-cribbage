@@ -1,6 +1,6 @@
 // Cards, suits and helpers
 
-export const SUITS=[{n:'apples',id:'s-apple',c:'#A81C2A'},{n:'pumpkins',id:'s-pumpkin',c:'#D2640A'},{n:'leaves',id:'s-leaf',c:'#2E6B34'},{n:'acorns',id:'s-acorn',c:'#4A2E1C'}];
+export const SUITS=[{n:'apples',id:'s-apple',c:'#A81C2A'},{n:'blackberries',id:'s-berry',c:'#6A2A78'},{n:'leaves',id:'s-leaf',c:'#2E6B34'},{n:'acorns',id:'s-acorn',c:'#4A2E1C'}];
 export const RL=['','A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 export const RN=['','ace','2','3','4','5','6','7','8','9','10','jack','queen','king'];
 export const NAME={p:'You',c:'Winnie'};
