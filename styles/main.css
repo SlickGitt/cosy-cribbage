@@ -74,7 +74,7 @@ button{font-family:inherit;font-weight:inherit}
 body.walking .opp-ui,body.walking .surface-ui,body.walking .hand-ui,body.walking .bar-ui{opacity:0;pointer-events:none}
 body.finished .opp-ui,body.finished .hand-ui,body.finished .bar-ui{opacity:0;pointer-events:none}
 .opp-ui{transform:translateX(-50%)}
-.surface-ui{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:end;gap:1rem;padding:0 1.1rem 1.1rem}
+.surface-ui{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:end;gap:1rem;padding:0 1.1rem 1.6rem}
 .spot{display:flex;flex-direction:column;align-items:center;gap:.4rem}
 .centre{display:flex;align-items:center;justify-content:center;gap:1rem;min-width:0;align-self:center;padding-top:1.6rem}
 .countbox{display:flex;flex-direction:column;align-items:center;padding:.4rem .9rem .5rem;flex:none;min-width:5.5rem;text-align:center}

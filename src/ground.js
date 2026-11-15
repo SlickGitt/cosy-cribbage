@@ -19,8 +19,8 @@ export function paintGround(c, W, H, segs, band, BIOMES, seed) {
       let k = 0;
       while (k < edges.length && y >= E[k][x] + (bayer(x, y) - 0.5) * 6) k++;
       const R = ramps[segs[k].biome];
-      const v = n1.fbm(x / 46, y / 46) * 0.7 + n2(x / 7, y / 7) * 0.3;
-      const t = Math.max(0, Math.min(R.length - 1, Math.floor(v * R.length * 1.25 - R.length * 0.12 + (bayer(x, y) - 0.5) * 1.1)));
+      const v = n1.fbm(x / 90, y / 90) * 0.8 + n2(x / 5, y / 5) * 0.2;
+      const t = Math.max(0, Math.min(R.length - 1, Math.floor(v * R.length + (bayer(x, y) - 0.5) * 0.7)));
       const col = R[t], i = (y * W + x) * 4;
       d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255;
     }

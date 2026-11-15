@@ -20,64 +20,64 @@ export const BIOMES = {
   meadow: {
     title: 'The meadow', line: 'Sheep, hay and wide open sky.', surface: 'rug', rug: ['#C98272', '#E2AE9E', '#F2E4CC'], prop: 'basket',
     ground: '#8FB04A', patches: ['#9CBC54', '#82A040', '#A8C860'], ...DIRT,
-    tones: ['#557E38', '#62903C', '#73A042', '#86B04A', '#9CC058', '#B2CE66'],
+    tones: ['#6C9840', '#74A044', '#7CA848', '#86B04C', '#90B852'],
     pathTones: ['#7A5634', '#94693F', '#AC7E4E', '#C2945E', '#D4AA72'],
     decorate(ctx) {
       const { c, rng, area, obj, critter, grove, place, spot } = ctx;
       // flower patches and grass blades on the ground
-      for (let i = 0; i < area * 1.4; i++) {
+      let flies = 0;
+      for (let i = 0; i < area * 0.6; i++) {
         const p = ctx.spotNearLane(16, 110, [4, 4]); if (!p) continue;
         const col = rng.pick(['#FFF4DC', '#F2A0B8', '#FFD45E', '#B8A0E8', '#E8603A']);
-        for (let k = 0; k < 26; k++) { const x = p[0] + rng.range(-12, 12), y = p[1] + rng.range(-6, 6); if (!ctx.near(x, y, 11)) { rect(c, x, y + 1, 1, 1, '#3E6A2E'); rect(c, x, y, 1, 1, rng() < 0.85 ? col : '#FFF4DC'); } }
-        if (rng() < 0.6) critter({ kind: 'butterfly', x: p[0], y: p[1] });
+        for (let k = 0; k < 18; k++) { const x = p[0] + rng.range(-12, 12), y = p[1] + rng.range(-6, 6); if (!ctx.near(x, y, 11)) { rect(c, x, y + 1, 1, 1, '#3E6A2E'); rect(c, x, y, 1, 1, rng() < 0.85 ? col : '#FFF4DC'); } }
+        if (flies < 1 && rng() < 0.5) { flies++; critter({ kind: 'butterfly', x: p[0], y: p[1] }); }
       }
-      grassBlades(ctx, area * 70, ['#B8D474', '#4E7A34', '#9CC058']);
+      grassBlades(ctx, area * 25, ['#A8C868', '#5E8A3A', '#94BC58']);
       // groves and lone trees
       for (let g = 0; g < area * 0.3; g++) grove(rng.int(3, 6), 26, 13, (x, y) => obj(x, y, treeSprite(rng.pick(MEADOW_TREES), rng), TREE), [22, 26], 20);
       place(area * 0.35, 28, 40, (x, y) => obj(x, y, treeSprite(rng.pick(MEADOW_TREES), rng), TREE), [22, 26]);
-      for (let g = 0; g < area * 0.4; g++) grove(rng.int(2, 4), 14, 10, (x, y) => obj(x, y, bushSprite(rng.pick(['green', 'lime']), rng), BUSH), [14, 10]);
-      place(area * 4, 12, 7, (x, y) => obj(x, y, tuftSprite(rng), { sway: 2 }), [6, 6], 50);
-      place(area * 0.5, 22, 34, (x, y) => obj(x, y, sprite('hay', 20, 16, (cc) => A.hay(cc, -7, -8))), [16, 10]);
-      place(area * 0.6, 14, 20, (x, y) => obj(x, y, sprite(`rock|${rng.int(0, 2)}`, 14, 12, (cc) => A.rock(cc, 0, -2))), [10, 6]);
-      place(area * 0.35, 22, 40, (x, y) => { const n = rng.int(3, 6); obj(x, y, sprite(`fence|${n}`, n * 8 + 6, 14, (cc) => A.fence(cc, -n * 4, -7, n))); }, [40, 8]);
+      for (let g = 0; g < area * 0.25; g++) grove(rng.int(2, 3), 14, 10, (x, y) => obj(x, y, bushSprite(rng.pick(['green', 'lime']), rng), BUSH), [14, 10]);
+      place(area * 1.2, 12, 10, (x, y) => obj(x, y, tuftSprite(rng), { sway: 2 }), [6, 6], 50);
+      place(area * 0.25, 22, 40, (x, y) => obj(x, y, sprite('hay', 20, 16, (cc) => A.hay(cc, -7, -8))), [16, 10]);
+      place(area * 0.25, 14, 20, (x, y) => obj(x, y, sprite(`rock|${rng.int(0, 2)}`, 14, 12, (cc) => A.rock(cc, 0, -2))), [10, 6]);
+      place(area * 0.2, 22, 40, (x, y) => { const n = rng.int(3, 6); obj(x, y, sprite(`fence|${n}`, n * 8 + 6, 14, (cc) => A.fence(cc, -n * 4, -7, n))); }, [40, 8]);
       // animals: a flock or two, a pair of cows, rabbits by the bushes, birds near the lane
-      for (let f = 0; f < Math.max(1, area * 0.15); f++) grove(rng.int(3, 5), 18, 8, (x, y) => critter({ kind: 'sheep', x, y }), [10, 8], 18);
-      if (rng() < 0.8) grove(2, 14, 12, (x, y) => critter({ kind: 'cow', x, y }), [16, 10], 22);
-      place(Math.max(1, area * 0.15), 16, 30, (x, y) => critter({ kind: 'rabbit', x, y }), [6, 6], 70);
-      place(area * 0.35, 14, 12, (x, y) => critter({ kind: 'bird', x, y }), [4, 4], 40);
+      grove(rng.int(3, 4), 18, 9, (x, y) => critter({ kind: 'sheep', x, y }), [10, 8], 18);
+      if (rng() < 0.4) grove(2, 14, 12, (x, y) => critter({ kind: 'cow', x, y }), [16, 10], 22);
+      if (rng() < 0.6) place(1, 16, 30, (x, y) => critter({ kind: 'rabbit', x, y }), [6, 6], 70);
+      place(rng.int(1, 3), 14, 12, (x, y) => critter({ kind: 'bird', x, y }), [4, 4], 40);
     },
   },
   forest: {
     title: 'The forest', line: '', surface: 'slab', prop: 'mushrooms',
     ground: '#55702E', patches: ['#4A6428', '#607C36', '#3E5822'], ...DARK_DIRT,
-    tones: ['#263E2C', '#2E4A2E', '#385632', '#446236', '#52703A', '#627E40'],
+    tones: ['#3A5832', '#405E34', '#466636', '#4E6E3A', '#56763C'],
     pathTones: ['#4A3420', '#5E4228', '#745434', '#8A6440', '#9E7650'],
     decorate(ctx) {
       const { c, rng, W, t, b, area, obj, critter, grove, place } = ctx;
       // drifts of fallen leaves and moss
-      for (let i = 0; i < area * 5; i++) {
+      for (let i = 0; i < area * 2.5; i++) {
         const cx = rng.range(0, W), cy = rng.range(t, b), col = rng.pick([['#C8642A', '#E8862E', '#F2B63C'], ['#A8352B', '#C8402F', '#E07A3A'], ['#6E8A3A', '#86A244']]);
-        for (let k = 0; k < 40; k++) { const x = cx + rng.range(-14, 14), y = cy + rng.range(-6, 6); rect(c, x, y, rng() < 0.5 ? 2 : 1, 1, rng.pick(col)); }
+        for (let k = 0; k < 24; k++) { const x = cx + rng.range(-14, 14), y = cy + rng.range(-6, 6); rect(c, x, y, rng() < 0.5 ? 2 : 1, 1, rng.pick(col)); }
       }
-      grassBlades(ctx, area * 30, ['#5E7E3A', '#2A4228', '#E8862E']);
+      grassBlades(ctx, area * 12, ['#5E7E3A', '#344E30', '#C8642A']);
       // a clearing or two, kept open
       const clear = [];
-      for (let i = 0; i < 2; i++) { const p = ctx.spotNearLane(40, 60, [6, 6]); if (p) clear.push(p); }
+      for (let i = 0; i < 1; i++) { const p = ctx.spotNearLane(40, 60, [6, 6]); if (p) clear.push(p); }
       const inClearing = (x, y) => clear.some(([cx, cy]) => Math.hypot(x - cx, (y - cy) * 1.4) < 26);
       const tree = (x, y) => { if (inClearing(x, y)) return; obj(x, y, rng() < 0.35 ? pineSprite(rng) : treeSprite(rng.pick(FOREST_TREES), rng), TREE);
-        if (rng() < 0.45) for (let k = 0; k < 2; k++) { const fx = x + rng.range(-9, 9), fy = y + rng.range(1, 4); if (ctx.free(fx, fy)) obj(fx, fy, sprite(`fern|${rng.int(0, 2)}`, 12, 12, (cc, r) => A.fern(cc, 0, 0)), { sway: 2 }); } };
+        if (rng() < 0.2) for (let k = 0; k < 2; k++) { const fx = x + rng.range(-9, 9), fy = y + rng.range(1, 4); if (ctx.free(fx, fy)) obj(fx, fy, sprite(`fern|${rng.int(0, 2)}`, 12, 12, (cc, r) => A.fern(cc, 0, 0)), { sway: 2 }); } };
       place(area * 9, 15, 11, tree, [10, 8]);
       place(area * 4, 22, 11, tree, [10, 8], 30);
-      place(area * 1.2, 14, 12, (x, y) => obj(x, y, bushSprite(rng.pick(['green', 'red', 'orange']), rng), BUSH), [14, 10]);
+      place(area * 0.6, 14, 14, (x, y) => obj(x, y, bushSprite(rng.pick(['green', 'red', 'orange']), rng), BUSH), [14, 10]);
       for (const [cx, cy] of clear) {
         grove(rng.int(4, 7), 20, 6, (x, y) => obj(x, y, sprite(`mush|${rng.int(0, 3)}`, 14, 10, (cc, r) => A.mushrooms(cc, -3, -3, r)), { kind: 'mush' }), [8, 5], 12, [cx, cy]);
         if (rng() < 0.7) { const p = [cx + rng.range(-14, 14), cy + rng.range(-6, 6)]; if (ctx.spot(p[0], p[1], 14, [24, 8])) obj(p[0], p[1], sprite('log', 26, 14, (cc) => A.log(cc, -9, -4))); }
         ctx.shaft(cx, cy);
       }
-      place(area * 0.6, 14, 20, (x, y) => obj(x, y, sprite(`stump|${rng.int(0, 1)}`, 14, 12, (cc) => A.stump(cc, 0, -2))), [10, 6]);
-      place(area * 0.4, 14, 30, (x, y) => obj(x, y, sprite(`rock|${rng.int(0, 2)}`, 14, 12, (cc) => A.rock(cc, 0, -2))), [10, 6]);
-      place(Math.max(2, area * 0.3), 14, 40, (x, y) => critter({ kind: 'squirrel', x, y }), [4, 4], 60);
-      place(area * 0.15, 14, 20, (x, y) => critter({ kind: 'bird', x, y }), [4, 4], 30);
+      place(area * 0.25, 14, 24, (x, y) => obj(x, y, sprite(`stump|${rng.int(0, 1)}`, 14, 12, (cc) => A.stump(cc, 0, -2))), [10, 6]);
+      place(area * 0.2, 14, 30, (x, y) => obj(x, y, sprite(`rock|${rng.int(0, 2)}`, 14, 12, (cc) => A.rock(cc, 0, -2))), [10, 6]);
+      place(rng.int(1, 2), 14, 60, (x, y) => critter({ kind: 'squirrel', x, y }), [4, 4], 60);
     },
   },
   orchard: {
@@ -175,7 +175,7 @@ export const BIOMES = {
       const { c, rng, W, t, b, area, place } = ctx;
       for (let i = 0; i < area * 14; i++) {
         const cx = rng.range(0, W), cy = rng.range(t, b), col = rng.pick([['#8E5A86', '#A86A9A'], ['#7A4E76', '#9A6090'], ['#A8743A', '#C08A48']]);
-        for (let k = 0; k < 26; k++) rect(c, cx + rng.range(-12, 12), cy + rng.range(-4, 4), rng.int(1, 2), 1, rng.pick(col));
+        for (let k = 0; k < 18; k++) rect(c, cx + rng.range(-12, 12), cy + rng.range(-4, 4), rng.int(1, 2), 1, rng.pick(col));
       }
       grass(ctx, area * 40, ['#A8B070', '#6E7A40', '#B890B0']);
       place(area * 0.5, 34, 80, (x, y) => S.tor(c, x, y), [32, 20]);

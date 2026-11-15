@@ -84,7 +84,7 @@ export function makeCritters(specs, objects, seed, hooks) {
     const near = covers.filter((o) => o !== not && Math.hypot(o.x - x, o.y - y) < r && Math.hypot(o.x - x, o.y - y) > 14);
     return near.length ? near[Math.floor(rng() * near.length)] : null;
   };
-  for (const cr of list) if (cr.kind === 'squirrel') { cr.cover = coverNear(cr.x, cr.y, null, 50); if (cr.cover) { cr.x = cr.cover.x; cr.y = cr.cover.y + 1; } cr.hidden = true; cr.st = 'hide'; cr.t = rng.range(1, 5); }
+  for (const cr of list) if (cr.kind === 'squirrel') { cr.cover = coverNear(cr.x, cr.y, null, 50); if (cr.cover) { cr.x = cr.cover.x; cr.y = cr.cover.y + 1; } cr.hidden = true; cr.st = 'hide'; cr.t = rng.range(4, 12); }
   const say = (cr, text) => hooks.say(text, cr.x, cr.y - 14);
   const moveTo = (cr, x, y, speed, st) => { cr.tx = x; cr.ty = y; cr.speed = speed; cr.st = st; cr.flip = x < cr.x; };
   const away = (cr, dist, fromX = cr.x - (cr.flip ? -1 : 1), fromY = cr.y) => {
@@ -107,7 +107,7 @@ export function makeCritters(specs, objects, seed, hooks) {
       cr.tail = 1.2; cr.flip = !cr.flip;
     } else if (cr.kind === 'bird') {
       if (cr.st === 'fly') return false;
-      sfx('flap'); if (by === 'click') sfx('tweet');
+      if (by === 'click') { sfx('flap'); sfx('tweet'); }
       cr.st = 'fly'; cr.flip = rng() < 0.5; cr.vx = (cr.flip ? -1 : 1) * rng.range(35, 55); cr.vy = rng.range(-30, -20);
       for (const o of list) if (o !== cr && o.kind === 'bird' && o.st !== 'fly' && Math.hypot(o.x - cr.x, o.y - cr.y) < 30) setTimeout(() => poke(o, 'flock'), rng.range(80, 300));
     } else if (cr.kind === 'squirrel') {
@@ -119,7 +119,7 @@ export function makeCritters(specs, objects, seed, hooks) {
       const cv = coverNear(cr.x, cr.y, null, 90);
       if (cv) { cr.cover = cv; moveTo(cr, cv.x, cv.y + 1, 55, 'bolt'); } else { const [x, y] = away(cr, 30); moveTo(cr, x, y, 55, 'bolt'); }
     } else if (cr.kind === 'butterfly') {
-      cr.flee = 3; sfx('tweet');
+      cr.flee = 3;
     }
     return true;
   }
@@ -127,7 +127,6 @@ export function makeCritters(specs, objects, seed, hooks) {
     const to = coverNear(cr.x, cr.y, cr.cover) || coverNear(cr.x, cr.y, cr.cover, 120);
     if (!to) return;
     cr.hidden = false; cr.from = cr.cover; cr.cover = to; moveTo(cr, to.x + rng.range(-3, 3), to.y + 1, rng.range(85, 110), 'run');
-    sfx('scurry');
   }
 
   function update(dt, t, walkers) {
@@ -154,8 +153,8 @@ export function makeCritters(specs, objects, seed, hooks) {
       const k = cr.kind;
       if (k === 'sheep' || k === 'cow') {
         if (cr.st === 'idle' && cr.t <= 0) {
-          if (rng() < 0.35) { const x = cr.hx + rng.range(-14, 14), y = cr.hy + rng.range(-6, 6); if (safe(x, y)) moveTo(cr, x, y, k === 'cow' ? 4 : 6, 'wander'); }
-          cr.t = rng.range(2, 6);
+          if (rng() < 0.25) { const x = cr.hx + rng.range(-10, 10), y = cr.hy + rng.range(-4, 4); if (safe(x, y)) moveTo(cr, x, y, k === 'cow' ? 4 : 5, 'wander'); }
+          cr.t = rng.range(4, 9);
         }
         const moving = cr.st === 'trot' || cr.st === 'wander';
         cr.f = cr.tail ? (Math.floor(t * 8) % 2 ? 'tail' : 'stand') : moving ? (Math.floor(t * (cr.st === 'trot' ? 10 : 4)) % 2 ? 'walk' : 'stand') : (Math.sin(t * 0.7 + cr.ph) > 0.1 ? 'graze' : 'stand');
@@ -173,7 +172,7 @@ export function makeCritters(specs, objects, seed, hooks) {
         }
       } else if (k === 'squirrel') {
         if (cr.st === 'hide' && cr.t <= 0) dash(cr);
-        else if (cr.st === 'peek') { cr.f = Math.sin(t * 9) > 0.7 ? 'flick' : 'sit'; if (cr.t <= 0) { if (rng() < 0.6) { cr.hidden = true; cr.st = 'hide'; cr.t = rng.range(2, 6); } else dash(cr); } }
+        else if (cr.st === 'peek') { cr.f = Math.sin(t * 9) > 0.7 ? 'flick' : 'sit'; if (cr.t <= 0) { if (rng() < 0.8) { cr.hidden = true; cr.st = 'hide'; cr.t = rng.range(8, 18); } else dash(cr); } }
         if (cr.st === 'run') cr.f = Math.floor(t * 14) % 2 ? 'run1' : 'run2';
       } else if (k === 'rabbit') {
         if (cr.st === 'hide' && cr.t <= 0) {
@@ -185,8 +184,8 @@ export function makeCritters(specs, objects, seed, hooks) {
         cr.f = moving ? (Math.floor(t * (cr.st === 'bolt' ? 10 : 6)) % 2 ? 'hop' : 'sit') : (Math.sin(t * 6 + cr.ph) > 0.85 ? 'twitch' : 'sit');
       } else if (k === 'butterfly') {
         if (cr.flee) { cr.flee = Math.max(0, cr.flee - dt); cr.fy = (cr.fy || 0) - dt * 20; } else cr.fy = (cr.fy || 0) * (1 - dt);
-        cr.x = cr.hx + Math.sin(t * 0.9 + cr.ph) * 12 + Math.sin(t * 2.3 + cr.ph) * 3;
-        cr.y = cr.hy + Math.cos(t * 1.1 + cr.ph) * 6;
+        cr.x = cr.hx + Math.sin(t * 0.5 + cr.ph) * 10 + Math.sin(t * 1.3 + cr.ph) * 2;
+        cr.y = cr.hy + Math.cos(t * 0.6 + cr.ph) * 5;
         cr.z = 8 + Math.round(Math.abs(Math.sin(t * 3 + cr.ph)) * 3) - Math.round(cr.fy);
         cr.f = Math.floor(t * 8 + cr.ph) % 2 ? 'a' : 'b';
       }
@@ -207,7 +206,7 @@ export function makeCritters(specs, objects, seed, hooks) {
     hit(ax, ay) {
       let best = null, bd = 1e9;
       for (const cr of list) {
-        if (!visible(cr)) continue;
+        if (!visible(cr) || cr.kind === 'butterfly') continue;
         const d = Math.hypot(cr.x - ax, (cr.y - 4 - (cr.z || 0)) - ay);
         if (d < (cr.kind === 'cow' ? 11 : 8) && d < bd) { bd = d; best = cr; }
       }

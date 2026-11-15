@@ -36,7 +36,7 @@ export function createScene({ canvas, hud }) {
   let lane = null, scale = 4, aw = 0, ah = 0, camX = 0, camY = 0, last = 0, L = null;
   let mode = 'stop', surfaceAlpha = 1, stop = { from: { p: 0, c: 0 }, hole: 0, biome: 'meadow' }, banked = { p: 0, c: 0 };
   let pos = { p: 0, c: 0 }, target = { p: 0, c: 0 }, stepAt = { p: 0, c: 0 }, walkDone = null;
-  let surf = { key: '', cv: null }, crit = null, parts = [], light = null, smokeAt = 0, deer = null, seenForest = false, visited = new Set(['meadow']), bannerTimer = 0, speechTimer = 0, leaves = null;
+  let surf = { key: '', cv: null }, clouds = null, crit = null, parts = [], light = null, smokeAt = 0, deer = null, seenForest = false, visited = new Set(['meadow']), bannerTimer = 0, speechTimer = 0, leaves = null;
 
   // ---- layout: where the lane, the surface, the hand and the action bar go on this screen.
   // u is the UI scale (1 at 1440x900); card widths are worked out here so the
@@ -50,8 +50,8 @@ export function createScene({ canvas, hud }) {
     canvas.width = aw; canvas.height = ah; canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
     leaves = makeLeaves(aw, ah, Math.round((aw * ah) / 2600), 9);
     const seatH = Math.round(17 * scale);
-    const oppH = (cw) => 14 * u + 0.6 * cw * 1.42 + 10 * u;      // Winnie's row on the surface
-    const surfH = (cw) => oppH(cw) + 28 * u + cw * 1.42 + 18 * u; // + label, main row, padding
+    const oppH = (cw) => 18 * u + 0.6 * cw * 1.42 + 12 * u;      // Winnie's row on the surface
+    const surfH = (cw) => oppH(cw) + 30 * u + cw * 1.42 + 26 * u; // + label, main row, padding
     let free, surface, hand, bar, cw, ch, top;
     if (portrait) {
       top = Math.round(124 * u);
@@ -231,7 +231,7 @@ export function createScene({ canvas, hud }) {
     }
     if (deer) {
       if (t > deer.until) { deer = null; bubble.hidden = true; }
-      else { list.push({ y: deer.y + 6, draw: () => A.deer(c, deer.x - ix, deer.y - iy) }); bubble.hidden = false; placeIn(bubble, deer.x + 6, deer.y - 12, mode === 'stop' ? L.free : { x: 0, y: L.top, w: L.W, h: L.H - L.top }); }
+      else { list.push({ y: deer.y + 6, draw: () => A.deer(c, deer.x - ix, deer.y - iy) }); bubble.hidden = false; placeIn(bubble, deer.x + 6, deer.y - 12, mode === 'stop' ? L.free : { x: 0, y: L.top + 70 * L.u, w: L.W, h: L.H - L.top - 70 * L.u }); }
     }
     for (const w of ['c', 'p']) {
       const showW = !!walkersAt;
@@ -261,6 +261,10 @@ export function createScene({ canvas, hud }) {
       for (const [o, w] of [[-10, 9], [6, 6]]) { c.beginPath(); c.moveTo(x + o - 30, y - 70); c.lineTo(x + o - 30 + w, y - 70); c.lineTo(x + o + w + 4, y + 6); c.lineTo(x + o + 4, y + 6); c.fill(); }
     }
     c.restore();
+    // soft cloud shadows drifting slowly over the lane
+    if (!clouds) clouds = c.createPattern(makeClouds(lane.seed), 'repeat');
+    const drift = t / 1000 * 4;
+    c.save(); c.translate(-((ix - drift) % 512) - 512, -((iy - drift * 0.35) % 384) - 384); c.fillStyle = clouds; c.fillRect(0, 0, aw + 1024, ah + 768); c.restore();
     if (!light || light.width !== aw || light.height !== ah) light = makeLight(aw, ah);
     c.drawImage(light, 0, 0);
 
@@ -293,6 +297,32 @@ export function createScene({ canvas, hud }) {
     c.drawImage(s.cv, 0, split, w, h - split, bx, by + split, w, h - split);
     c.drawImage(s.cv, 0, 0, w, split, bx + dx, by, w, split);
   }
+
+  // A tileable sheet of soft cloud shadows: clusters of round puffs, with the
+  // soft edge dithered in two steps so it still reads as pixel art.
+  function makeClouds(seed) {
+    const W2 = 512, H2 = 384, cv = document.createElement('canvas'); cv.width = W2; cv.height = H2;
+    const g = cv.getContext('2d'), img = g.createImageData(W2, H2), d = img.data, rng = makeRng(seed * 13 + 1);
+    const puffs = [];
+    for (let k = 0; k < 4; k++) {
+      const cx = rng.range(0, W2), cy = rng.range(0, H2), n = rng.int(5, 8);
+      for (let i = 0; i < n; i++) puffs.push([cx + rng.range(-60, 60), cy + rng.range(-20, 20), rng.range(22, 40)]);
+    }
+    const B = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+    for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) {
+      let a = 0;
+      for (const [px, py, r] of puffs) {
+        let dx = Math.abs(x - px), dy = Math.abs(y - py); dx = Math.min(dx, W2 - dx); dy = Math.min(dy, H2 - dy) * 1.6;
+        const q = 1 - Math.hypot(dx, dy) / r; if (q > a) a = q;
+      }
+      if (a <= 0) continue;
+      const th = (B[(y & 3) * 4 + (x & 3)] + 0.5) / 16, lvl = a > 0.35 ? 2 : a * 2.86 > th ? 1 : 0;
+      if (!lvl) continue;
+      const i = (y * W2 + x) * 4; d[i] = 24; d[i + 1] = 18; d[i + 2] = 52; d[i + 3] = lvl === 2 ? 58 : 30;
+    }
+    g.putImageData(img, 0, 0);
+    return cv;
+  }
   function makeLight(w, h) {
     const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
     const g = cv.getContext('2d');
@@ -300,7 +330,7 @@ export function createScene({ canvas, hud }) {
     warm.addColorStop(0, 'rgba(255,214,140,0.16)'); warm.addColorStop(0.6, 'rgba(255,200,120,0.05)'); warm.addColorStop(1, 'rgba(255,200,120,0)');
     g.fillStyle = warm; g.fillRect(0, 0, w, h);
     const v = g.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.75);
-    v.addColorStop(0, 'rgba(40,22,48,0)'); v.addColorStop(1, 'rgba(40,22,48,0.32)');
+    v.addColorStop(0, 'rgba(40,22,48,0)'); v.addColorStop(1, 'rgba(40,22,48,0.18)');
     g.fillStyle = v; g.fillRect(0, 0, w, h);
     return cv;
   }
@@ -350,7 +380,7 @@ export function createScene({ canvas, hud }) {
     get debug() { return { crit, camX, camY, scale, lane }; },
     relayout: layout,
     reset(newLane) {
-      lane = newLane; deer = null; seenForest = false; visited = new Set(['meadow']); parts = [];
+      lane = newLane; clouds = null; deer = null; seenForest = false; visited = new Set(['meadow']); parts = [];
       crit = makeCritters(lane.critters, lane.objects, lane.seed, { say: sayAt, clear: (x, y) => lane.free(x, y), spot: (x, y) => lane.spotNear(x, y) }); bubble.hidden = true; banner.hidden = true; speech.hidden = true;
       pos = { p: 0, c: 0 }; target = { p: 0, c: 0 };
       this.setStop({ p: 0, c: 0 });

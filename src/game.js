@@ -19,7 +19,7 @@ function placeUI() {
   box('surfaceUI', { x: s.x, y: s.y + L.oppH, w: s.w, h: s.h - L.oppH });
   box('barUI', L.bar);
   box('handUI', L.hand);
-  Object.assign($id('oppUI').style, { left: L.seats[0].x + 'px', top: (s.y + 14 * u) + 'px' });
+  Object.assign($id('oppUI').style, { left: L.seats[0].x + 'px', top: (s.y + 18 * u) + 'px' });
   const root = document.body.style;
   root.setProperty('--cw', L.cw.toFixed(1) + 'px');
   root.setProperty('--ch', L.ch.toFixed(1) + 'px');
