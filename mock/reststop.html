@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rest stop mock</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+#scene{position:fixed;left:0;top:0;image-rendering:pixelated}
+.ov{position:fixed;inset:0;pointer-events:none}
+.ov>*{position:absolute}
+.hudchip{display:flex;align-items:center;gap:10px;padding:4px 12px;background:var(--cream);color:var(--ink);border:3px solid var(--ink);box-shadow:3px 3px 0 rgba(0,0,0,.3);font-weight:800;font-size:16px}
+.hudchip.you{background:var(--lamp)}
+.hudchip b{font-family:Fredoka,sans-serif;font-weight:600;font-size:24px}
+.hudchip small{font-size:14px;color:#6B4A2A}
+.roundchip{padding:6px 16px;background:var(--ink);border:3px solid var(--cream);box-shadow:0 0 0 3px var(--ink),4px 4px 0 3px rgba(0,0,0,.3);text-align:center}
+.roundchip .r{font-family:Fredoka,sans-serif;font-weight:600;font-size:20px;color:var(--lamp)}
+.roundchip .s{font-size:14px;color:#E9D9BF}
+.flaglabel{transform:translate(-50%,-100%);padding:2px 8px;border:3px solid var(--ink);font-size:14px;font-weight:800;color:var(--ink);white-space:nowrap}
+.speech{transform:translate(-10%,-100%);padding:6px 12px;background:#FFF4DC;border:3px solid var(--ink);box-shadow:4px 4px 0 rgba(0,0,0,.3);color:var(--ink);font-size:17px;font-weight:800;white-space:nowrap}
+.speech:after{content:"";position:absolute;left:16px;bottom:-11px;border:8px solid transparent;border-top-color:var(--ink)}
+.held{display:flex;justify-content:center}
+.held .card{margin-left:calc(var(--cw)*-.12)}
+.chiprow{display:flex;gap:8px}
+.mini .card,.mini .back{--w:calc(var(--cw)*.55)}
+.actionbox{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.prompt2{padding:6px 14px;background:var(--ink);border:3px solid var(--lamp);color:var(--lamp);font-size:18px;font-weight:800;white-space:nowrap}
+.pop{animation:none}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="s-apple" viewBox="0 0 9 10" shape-rendering="crispEdges"><rect x="4" y="0" width="1" height="1" fill="currentColor"></rect><rect x="6" y="0" width="2" height="1" fill="currentColor"></rect><rect x="4" y="1" width="1" height="1" fill="currentColor"></rect><rect x="5" y="1" width="2" height="1" fill="currentColor"></rect><rect x="1" y="2" width="3" height="1" fill="currentColor"></rect><rect x="5" y="2" width="3" height="1" fill="currentColor"></rect><rect x="0" y="3" width="1" height="1" fill="currentColor"></rect><rect x="1" y="3" width="1" height="1" fill="currentColor"></rect><rect x="2" y="3" width="7" height="1" fill="currentColor"></rect><rect x="0" y="4" width="1" height="1" fill="currentColor"></rect><rect x="1" y="4" width="1" height="1" fill="currentColor"></rect><rect x="2" y="4" width="7" height="1" fill="currentColor"></rect><rect x="0" y="5" width="9" height="1" fill="currentColor"></rect><rect x="0" y="6" width="9" height="1" fill="currentColor"></rect><rect x="1" y="7" width="7" height="1" fill="currentColor"></rect><rect x="1" y="8" width="7" height="1" fill="currentColor"></rect><rect x="2" y="9" width="2" height="1" fill="currentColor"></rect><rect x="5" y="9" width="2" height="1" fill="currentColor"></rect><rect x="1" y="3" width="1" height="1" fill="#FFFFFF" fill-opacity="0.5"></rect><rect x="1" y="4" width="1" height="1" fill="#FFFFFF" fill-opacity="0.5"></rect></symbol><symbol id="s-pumpkin" viewBox="0 0 9 10" shape-rendering="crispEdges"><rect x="4" y="0" width="1" height="1" fill="#5C3A26"></rect><rect x="4" y="1" width="2" height="1" fill="#5C3A26"></rect><rect x="1" y="2" width="1" height="1" fill="currentColor"></rect><rect x="2" y="2" width="1" height="1" fill="currentColor"></rect><rect x="3" y="2" width="3" height="1" fill="currentColor"></rect><rect x="6" y="2" width="1" height="1" fill="currentColor"></rect><rect x="7" y="2" width="1" height="1" fill="currentColor"></rect><rect x="0" y="3" width="2" height="1" fill="currentColor"></rect><rect x="2" y="3" width="1" height="1" fill="currentColor"></rect><rect x="3" y="3" width="3" height="1" fill="currentColor"></rect><rect x="6" y="3" width="1" height="1" fill="currentColor"></rect><rect x="7" y="3" width="2" height="1" fill="currentColor"></rect><rect x="0" y="4" width="2" height="1" fill="currentColor"></rect><rect x="2" y="4" width="1" height="1" fill="currentColor"></rect><rect x="3" y="4" width="3" height="1" fill="currentColor"></rect><rect x="6" y="4" width="1" height="1" fill="currentColor"></rect><rect x="7" y="4" width="2" height="1" fill="currentColor"></rect><rect x="0" y="5" width="2" height="1" fill="currentColor"></rect><rect x="2" y="5" width="1" height="1" fill="currentColor"></rect><rect x="3" y="5" width="3" height="1" fill="currentColor"></rect><rect x="6" y="5" width="1" height="1" fill="currentColor"></rect><rect x="7" y="5" width="2" height="1" fill="currentColor"></rect><rect x="0" y="6" width="2" height="1" fill="currentColor"></rect><rect x="2" y="6" width="1" height="1" fill="currentColor"></rect><rect x="3" y="6" width="3" height="1" fill="currentColor"></rect><rect x="6" y="6" width="1" height="1" fill="currentColor"></rect><rect x="7" y="6" width="2" height="1" fill="currentColor"></rect><rect x="0" y="7" width="2" height="1" fill="currentColor"></rect><rect x="2" y="7" width="1" height="1" fill="currentColor"></rect><rect x="3" y="7" width="3" height="1" fill="currentColor"></rect><rect x="6" y="7" width="1" height="1" fill="currentColor"></rect><rect x="7" y="7" width="2" height="1" fill="currentColor"></rect><rect x="1" y="8" width="1" height="1" fill="currentColor"></rect><rect x="2" y="8" width="1" height="1" fill="currentColor"></rect><rect x="3" y="8" width="3" height="1" fill="currentColor"></rect><rect x="6" y="8" width="1" height="1" fill="currentColor"></rect><rect x="7" y="8" width="1" height="1" fill="currentColor"></rect><rect x="2" y="9" width="5" height="1" fill="currentColor"></rect><rect x="2" y="2" width="1" height="1" fill="#000000" fill-opacity="0.25"></rect><rect x="6" y="2" width="1" height="1" fill="#000000" fill-opacity="0.25"></rect><rect x="2" y="3" width="1" height="1" fill="#000000" fill-opacity="0.25"></rect><rect x="6" y="3" width="1" height="1" fill="#000000" fill-opacity="0.25"></rect><rect x="2" y="4" width="1" height="1" fill="#000000" fill-opacity="0.25"></rect><rect x="6" y="4" width="1" height="1" fill="#000000" fill-opacity="0.25"></rect><rect x="2" y="5" width="1" height="1" fill="#000000" fill-opacity="0.25"></rect><rect x="6" y="5" width="1" height="1" fill="#000000" fill-opacity="0.25"></rect><rect x="2" y="6" width="1" height="1" fill="#000000" fill-opacity="0.25"></rect><rect x="6" y="6" width="1" height="1" fill="#000000" fill-opacity="0.25"></rect><rect x="2" y="7" width="1" height="1" fill="#000000" fill-opacity="0.25"></rect><rect x="6" y="7" width="1" height="1" fill="#000000" fill-opacity="0.25"></rect><rect x="2" y="8" width="1" height="1" fill="#000000" fill-opacity="0.25"></rect><rect x="6" y="8" width="1" height="1" fill="#000000" fill-opacity="0.25"></rect></symbol><symbol id="s-leaf" viewBox="0 0 9 10" shape-rendering="crispEdges"><rect x="4" y="0" width="1" height="1" fill="currentColor"></rect><rect x="3" y="1" width="3" height="1" fill="currentColor"></rect><rect x="2" y="2" width="2" height="1" fill="currentColor"></rect><rect x="4" y="2" width="1" height="1" fill="currentColor"></rect><rect x="5" y="2" width="2" height="1" fill="currentColor"></rect><rect x="1" y="3" width="3" height="1" fill="currentColor"></rect><rect x="4" y="3" width="1" height="1" fill="currentColor"></rect><rect x="5" y="3" width="3" height="1" fill="currentColor"></rect><rect x="0" y="4" width="1" height="1" fill="currentColor"></rect><rect x="1" y="4" width="1" height="1" fill="currentColor"></rect><rect x="2" y="4" width="2" height="1" fill="currentColor"></rect><rect x="4" y="4" width="1" height="1" fill="currentColor"></rect><rect x="5" y="4" width="2" height="1" fill="currentColor"></rect><rect x="7" y="4" width="1" height="1" fill="currentColor"></rect><rect x="8" y="4" width="1" height="1" fill="currentColor"></rect><rect x="0" y="5" width="2" height="1" fill="currentColor"></rect><rect x="2" y="5" width="1" height="1" fill="currentColor"></rect><rect x="3" y="5" width="1" height="1" fill="currentColor"></rect><rect x="4" y="5" width="1" height="1" fill="currentColor"></rect><rect x="5" y="5" width="1" height="1" fill="currentColor"></rect><rect x="6" y="5" width="1" height="1" fill="currentColor"></rect><rect x="7" y="5" width="2" height="1" fill="currentColor"></rect><rect x="1" y="6" width="3" height="1" fill="currentColor"></rect><rect x="4" y="6" width="1" height="1" fill="currentColor"></rect><rect x="5" y="6" width="3" height="1" fill="currentColor"></rect><rect x="2" y="7" width="2" height="1" fill="currentColor"></rect><rect x="4" y="7" width="1" height="1" fill="currentColor"></rect><rect x="5" y="7" width="2" height="1" fill="currentColor"></rect><rect x="4" y="8" width="1" height="1" fill="currentColor"></rect><rect x="4" y="9" width="1" height="1" fill="currentColor"></rect><rect x="4" y="2" width="1" height="1" fill="#F7EEDD" fill-opacity="0.6"></rect><rect x="4" y="3" width="1" height="1" fill="#F7EEDD" fill-opacity="0.6"></rect><rect x="1" y="4" width="1" height="1" fill="#F7EEDD" fill-opacity="0.6"></rect><rect x="4" y="4" width="1" height="1" fill="#F7EEDD" fill-opacity="0.6"></rect><rect x="7" y="4" width="1" height="1" fill="#F7EEDD" fill-opacity="0.6"></rect><rect x="2" y="5" width="1" height="1" fill="#F7EEDD" fill-opacity="0.6"></rect><rect x="4" y="5" width="1" height="1" fill="#F7EEDD" fill-opacity="0.6"></rect><rect x="6" y="5" width="1" height="1" fill="#F7EEDD" fill-opacity="0.6"></rect><rect x="4" y="6" width="1" height="1" fill="#F7EEDD" fill-opacity="0.6"></rect><rect x="4" y="7" width="1" height="1" fill="#F7EEDD" fill-opacity="0.6"></rect></symbol><symbol id="s-acorn" viewBox="0 0 9 10" shape-rendering="crispEdges"><rect x="4" y="0" width="1" height="1" fill="#4A2E1C"></rect><rect x="1" y="1" width="7" height="1" fill="#4A2E1C"></rect><rect x="0" y="2" width="9" height="1" fill="#4A2E1C"></rect><rect x="0" y="3" width="9" height="1" fill="#4A2E1C"></rect><rect x="1" y="4" width="7" height="1" fill="currentColor"></rect><rect x="1" y="5" width="1" height="1" fill="currentColor"></rect><rect x="2" y="5" width="6" height="1" fill="currentColor"></rect><rect x="1" y="6" width="1" height="1" fill="currentColor"></rect><rect x="2" y="6" width="6" height="1" fill="currentColor"></rect><rect x="2" y="7" width="5" height="1" fill="currentColor"></rect><rect x="3" y="8" width="3" height="1" fill="currentColor"></rect><rect x="4" y="9" width="1" height="1" fill="currentColor"></rect><rect x="1" y="5" width="1" height="1" fill="#FFFFFF" fill-opacity="0.4"></rect><rect x="1" y="6" width="1" height="1" fill="#FFFFFF" fill-opacity="0.4"></rect></symbol></defs></svg>
+<canvas id="scene"></canvas><div class="ov" id="ov"></div>
+<script type="module">
+import { drawRestStop, stopLane } from '../src/reststop.js';
+const q = new URLSearchParams(location.search), v = q.get('v') || 'meadow';
+const W = innerWidth, H = innerHeight, portrait = H > W;
+const scale = portrait ? 3 : 4, aw = Math.ceil(W / scale), ah = Math.ceil(H / scale);
+const cv = document.getElementById('scene'); cv.width = aw; cv.height = ah; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+const c = cv.getContext('2d');
+const SU = { a: ['s-apple', '#A81C2A'], p: ['s-pumpkin', '#D2640A'], l: ['s-leaf', '#2E6B34'], o: ['s-acorn', '#4A2E1C'] };
+const card = (r, s, cls = '', st = '') => `<div class="card ${cls}" style="color:${SU[s][1]};${st}"><span class="rk"><b>${r}</b><svg viewBox="0 0 9 10"><use href="#${SU[s][0]}"></use></svg></span><svg class="big" viewBox="0 0 9 10"><use href="#${SU[s][0]}"></use></svg></div>`;
+const back = (st = '') => `<div class="back" style="${st}"><svg viewBox="0 0 9 10"><use href="#s-leaf"></use></svg></div>`;
+const S = (x) => x * scale;
+const ov = document.getElementById('ov');
+const put = (html, x, y, extra = '') => { ov.insertAdjacentHTML('beforeend', `<div style="left:${x}px;top:${y}px;${extra}">${html}</div>`); };
+const fan = (cards, cw, lifts = []) => `<div class="held" style="--cw:${cw}px">${cards.map((k, i) => { const n = cards.length, a = (i - (n - 1) / 2) * 4, l = lifts.includes(i) ? -22 : Math.abs(i - (n - 1) / 2) * 5; return card(k[0], k[1], lifts.includes(i) ? 'sel' : '', `transform:translateY(${l}px) rotate(${a}deg);transform-origin:50% 120%;${i ? '' : 'margin-left:0'}`); }).join('')}</div>`;
+const hud = (sub, you, win) => {
+  put(`<div class="titlechip" style="position:static"><span class="title">Cosy Cribbage</span><span class="seed">Lane 4271</span></div>`, 14, 14);
+  put(`<div class="roundchip"><div class="r">Round 4 · your crib</div><div class="s">${sub}</div></div>`, W / 2, 14, 'transform:translateX(-50%)');
+  put(`<div class="chiprow"><div class="hudchip you">You <b>${you[0]}</b>${you[1] ? `<small>+${you[1]}</small>` : ''}</div><div class="hudchip">Winnie <b>${win[0]}</b>${win[1] ? `<small>+${win[1]}</small>` : ''}</div></div>`, W - 14, 14, 'transform:translateX(-100%)');
+};
+
+if (v === 'meadow' || v === 'forest') {
+  const meadow = v === 'meadow';
+  const lane = stopLane({ from: [46, -10], to: [58, ah + 20], count: 22, start: 0, startN: meadow ? 25 : 49, dir: 'down' });
+  const cur = meadow ? 34 : 58, cw = meadow ? 31 : 52;
+  const holeOf = (n) => lane.holes.find((h) => h.n === n);
+  const flags = [];
+  if (meadow) {
+    const fy = holeOf(40), fw = holeOf(33);
+    flags.push({ who: 'p', x: fy.x + 10, y: fy.y + 2, dots: lane.holes.filter((h) => h.n > cur && h.n < 40).map((h) => [h.x - 1, h.y - 1]) });
+    flags.push({ who: 'c', x: fw.x - 10, y: fw.y + 2, dots: [] });
+  }
+  const surface = meadow ? { x: 112, y: 50, w: 190, h: 120 } : { x: 120, y: 56, w: 184, h: 112 };
+  drawRestStop(c, { aw, ah, biome: v, seed: meadow ? 4 : 8, lane, surface, seats: [[surface.x + surface.w / 2, surface.y - 1], [surface.x - 10, surface.y + surface.h - 18]], walked: cur, flags,
+    nextBiome: { biome: meadow ? 'forest' : 'meadow', rect: { x: 0, y: 196, w: 104, h: 40 } }, keepClear: [{ x: 300, y: 150, w: 70, h: 80 }, { x: 90, y: 168, w: 230, h: 70 }] });
+  hud(meadow ? 'A picnic in the meadow' : 'A tree stump in the forest', meadow ? [34, 6] : [58, 0], meadow ? [31, 2] : [52, 0]);
+  const bx = S(surface.x), by = S(surface.y), bw = S(surface.w), bh = S(surface.h);
+  const tcw = 92;
+  const sign = lane.holes[lane.holes.length - 3];
+  put(`<div class="flaglabel" style="background:#3E5A2E;color:#FFF4DC;border-color:#F5EBDA">${meadow ? 'Forest ahead' : 'Meadow ahead'}</div>`, S(sign.x) + 60, S(sign.y) + 70, '');
+  if (meadow) {
+    const fy = holeOf(40), fw = holeOf(33);
+    put(`<div class="flaglabel" style="background:var(--lamp)">You walk to 40</div>`, S(fy.x + 10) + 64, S(fy.y) - 18);
+    put(`<div class="flaglabel" style="background:var(--cream)">Winnie to 33</div>`, S(fw.x - 10) - 10, S(fw.y) - 56);
+    // on the blanket
+    put(`<div style="--cw:${tcw}px" class="stack"><span class="label" style="text-shadow:0 2px 0 #2B1D24">Starter</span>${card('4', 'l')}</div>`, bx + 40, by + 120);
+    put(`<div style="--cw:${tcw}px;display:flex;align-items:center;gap:14px"><div class="countbox"><span class="label">Count</span><b>23</b></div><div class="pile" style="width:${tcw * 2.1}px">${[['7', 'o', 0], ['8', 'a', 1], ['8', 'p', 2]].map(([r, s2, i]) => card(r, s2, 'pc', `left:calc(50% + ${tcw}px*${(0.5 - (2 - i) * 0.5).toFixed(2)} - ${tcw / 2}px);transform:rotate(${[-3, 2, -1][i]}deg);z-index:${i + 1}`)).join('')}</div></div>`, bx + 220, by + 150);
+    put(`<div class="pop" style="position:static;transform:none">+2 Pair</div>`, bx + 420, by + 100);
+    put(`<div style="--cw:${tcw}px" class="stack"><span class="label" style="text-shadow:0 2px 0 #2B1D24">Your crib</span><div class="crib">${[0, 4, 8, 12].map((o) => back(`position:absolute;left:${o}px;top:${o}px`)).join('')}</div></div>`, bx + bw - 175, by + 120);
+    put(`<div class="mini" style="--cw:${tcw}px"><div class="fan">${back()}${back()}</div></div>`, S(surface.x + surface.w / 2) + 34, by - 96);
+    put(`<div class="speech">Ooh, a pair!</div>`, S(surface.x + surface.w / 2) + 100, by - 108);
+    put(fan([['5', 'a'], ['6', 'l'], ['J', 'o']], 140), W / 2 - 220, H - 225);
+    put(`<div class="actionbox"><span class="prompt2">Your turn: play a card</span></div>`, W / 2 + 230, H - 120);
+  } else {
+    put(`<div style="--cw:${tcw}px" class="stack"><span class="label" style="text-shadow:0 2px 0 #2B1D24">Deck</span><div class="crib">${[0, 3, 6].map((o) => back(`position:absolute;left:${o}px;top:${o}px`)).join('')}</div></div>`, bx + 70, by + 110);
+    put(`<div style="--cw:${tcw}px;display:flex;flex-direction:column;align-items:center;gap:8px"><span class="label" style="text-shadow:0 2px 0 #2B1D24">Your crib</span><div style="display:flex;gap:10px"><div class="empty">&nbsp;</div><div class="empty">&nbsp;</div></div></div>`, bx + bw / 2 - 20, by + 110);
+    put(`<div class="mini" style="--cw:${tcw}px"><div class="fan">${back()}${back()}${back()}${back()}${back()}${back()}</div></div>`, S(surface.x + surface.w / 2) + 34, by - 96);
+    put(`<div class="speech">Hmm, let me think...</div>`, S(surface.x + surface.w / 2) + 160, by - 100);
+    put(fan([['2', 'p'], ['5', 'a'], ['5', 'l'], ['6', 'p'], ['9', 'a'], ['K', 'o']], 132, [4, 5]), W / 2 - 400, H - 200);
+    put(`<div class="actionbox"><span class="prompt2">Choose 2 for your crib</span><button class="btn" style="pointer-events:auto">Send to crib</button></div>`, W / 2 + 430, H - 170);
+  }
+} else {
+  // phone, meadow, pegging
+  const lane = stopLane({ from: [-10, 30], to: [aw + 10, 50], count: 14, start: 0, startN: 30, dir: 'across' });
+  const holeOf = (n) => lane.holes.find((h) => h.n === n);
+  const fy = holeOf(40), fw = holeOf(33);
+  const surface = { x: 8, y: 92, w: 114, h: 98 };
+  drawRestStop(c, { aw, ah, biome: 'meadow', seed: 5, lane, surface, seats: [[45, 91], [85, 91]], walked: 34,
+    flags: [{ who: 'p', x: fy.x, y: fy.y - 6, dots: lane.holes.filter((h) => h.n > 34 && h.n < 40).map((h) => [h.x - 1, h.y - 1]) }, { who: 'c', x: fw.x, y: fw.y + 14, dots: [] }],
+    nextBiome: { biome: 'forest', rect: { x: 108, y: 0, w: 30, h: 70 } }, keepClear: [{ x: -10, y: 196, w: 150, h: 120 }] });
+  put(`<div class="titlechip" style="position:static"><span class="title">Cosy Cribbage</span></div>`, 10, 10);
+  put(`<div class="chiprow" style="transform:none"><div class="hudchip you" style="font-size:13px">You <b style="font-size:18px">34</b><small>+6</small></div><div class="hudchip" style="font-size:13px">Winnie <b style="font-size:18px">31</b><small>+2</small></div></div>`, 10, 58);
+  put(`<div class="flaglabel" style="background:var(--lamp);font-size:12px;transform:translate(-100%,-100%)">You walk to 40</div>`, W - 8, S(fy.y) - 44);
+  const bx = S(surface.x), by = S(surface.y), tcw = 58;
+  put(`<div style="--cw:${tcw}px" class="stack"><span class="label" style="font-size:12px;text-shadow:0 2px 0 #2B1D24">Starter</span>${card('4', 'l')}</div>`, bx + 14, by + 90);
+  put(`<div style="--cw:${tcw}px;display:flex;flex-direction:column;align-items:center;gap:6px"><div class="countbox" style="padding:3px 10px"><span class="label" style="font-size:12px">Count</span><b style="font-size:24px">23</b></div><div class="pile" style="width:${tcw * 2.1}px">${[['7', 'o', 0], ['8', 'a', 1], ['8', 'p', 2]].map(([r, s2, i]) => card(r, s2, 'pc', `left:calc(50% + ${tcw}px*${(0.5 - (2 - i) * 0.5).toFixed(2)} - ${tcw / 2}px);z-index:${i + 1}`)).join('')}</div></div>`, bx + 96, by + 40);
+  put(`<div style="--cw:${tcw}px" class="stack"><span class="label" style="font-size:12px;text-shadow:0 2px 0 #2B1D24">Crib</span><div class="crib">${[0, 3, 6].map((o) => back(`position:absolute;left:${o}px;top:${o}px`)).join('')}</div></div>`, bx + 260, by + 90);
+  put(`<div class="speech" style="font-size:14px;transform:translate(-100%,-100%)">Ooh, a pair!</div>`, S(45) - 14, by - 40);
+  put(`<span class="prompt2" style="font-size:15px">Your turn: play a card</span>`, W / 2, H - 196, 'transform:translateX(-50%)');
+  put(fan([['5', 'a'], ['6', 'l'], ['J', 'o']], 92), W / 2 - 140, H - 150);
+}
+</script></body></html>
