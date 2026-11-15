@@ -13,7 +13,7 @@ const PATH = { meadow: ['#7A5634', '#C49464', '#D6A874'], forest: ['#4A3420', '#
 // Seated walker: head and body rows from the standing sprite, legs folded.
 export function seated(c, who, x, y) {
   const w = A.WALKERS[who];
-  const rows = [...w.rows.slice(0, 15), '.oLLLLLLo.', 'oBBLooLBBo'];
+  const rows = w.seat;
   oval(c, x, y, 6, 2, 'rgba(20,10,10,0.28)');
   sprite(c, rows, w.pal, x - 5, y - rows.length + 1);
 }

@@ -34,6 +34,9 @@ then open http://localhost:8000.
 - `src/ground.js` textured ground and lane
 - `src/sprites.js` baked, outlined scenery sprites
 - `src/critters.js` animals and what they do when clicked
+- `src/walkers.js` walker sprites (from the design canvas) and menu drawings
+- `src/save.js` progress saved in the browser: walker, settings, stats, unlocks
+- `src/unlocks.js` what unlocks and how
 
 Style trial: only the meadow and forest are switched on (`ACTIVE` in `src/biomes.js`) while the new look is tested. Click sheep, cows, birds, rabbits, squirrels, butterflies, trees, bushes and mushrooms in the lane view.
 - `src/scene.js` the full-screen scene: rest stop mode and walk mode

@@ -188,17 +188,10 @@ export function signpost(c, x, y, n, numberFn) {
   numberFn(c, n, x + 1 - Math.floor(w / 2), y - 15 + 0.5, '#2B1D24');
 }
 
-// ---------- walker sprites (10 x 20) ----------
-const BODY = ['..oKKKKo..', '.oKKKKKKo.', 'oCCKKCCCCo', 'oCCKKCCCCo', 'oCCCCCCCCo', 'oCcCCCCcCo', 'oCcCCCCcCo', 'oCCCCCCCCo', '.oCCCCCCo.', '..oLLLLo..', '..oLooLo..', '..oLooLo..', '.oBBooBBo.'];
-const HEADS = {
-  bobble: ['...oPPo...', '..oHHHHo..', '.oHHHHHHo.', '.oHHHHHHo.', '.oSSSSSSo.', '.oSoSSoSo.', '.oSSSSSSo.'],
-  bun: ['....oo....', '...oGGo...', '..oGGGGo..', '.oGGGGGGo.', '.oGSSSSGo.', '.oSoSSoSo.', '.oSSSSSSo.'],
-};
-const BASE = { o: '#2B1D24', S: '#F0C8A0', L: '#3A2433', B: '#6B3E26' };
-export const WALKERS = {
-  p: { rows: [...HEADS.bobble, ...BODY], pal: { ...BASE, H: '#E8603A', P: '#FFF4DC', K: '#C83A2E', C: '#F2B63C', c: '#C98E22' } },
-  c: { rows: [...HEADS.bun, ...BODY], pal: { ...BASE, G: '#C9C2CC', K: '#F2B63C', C: '#8E3E6E', c: '#6E2E56' } },
-};
+// ---------- walker sprites live in walkers.js ----------
+import { WALKERS } from './walkers.js';
+export { WALKERS };
+
 export function walker(c, who, x, y, bob = 0) {
   // (x, y) = feet centre
   const w = WALKERS[who];

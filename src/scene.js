@@ -36,7 +36,7 @@ export function createScene({ canvas, hud }) {
   let lane = null, scale = 4, aw = 0, ah = 0, camX = 0, camY = 0, last = 0, L = null;
   let mode = 'stop', surfaceAlpha = 1, stop = { from: { p: 0, c: 0 }, hole: 0, biome: 'meadow' }, banked = { p: 0, c: 0 };
   let pos = { p: 0, c: 0 }, target = { p: 0, c: 0 }, stepAt = { p: 0, c: 0 }, walkDone = null;
-  let surf = { key: '', cv: null }, clouds = null, crit = null, parts = [], light = null, smokeAt = 0, deer = null, seenForest = false, visited = new Set(['meadow']), bannerTimer = 0, speechTimer = 0, leaves = null;
+  let surf = { key: '', cv: null }, titlePos = 0, clouds = null, crit = null, parts = [], light = null, smokeAt = 0, deer = null, seenForest = false, visited = new Set(['meadow']), bannerTimer = 0, speechTimer = 0, leaves = null;
 
   // ---- layout: where the lane, the surface, the hand and the action bar go on this screen.
   // u is the UI scale (1 at 1440x900); card widths are worked out here so the
@@ -138,7 +138,7 @@ export function createScene({ canvas, hud }) {
 
   function drawSurface(biome) {
     const s = L.surface, x = Math.round(s.x / scale), y = Math.round(s.y / scale), w = Math.round(s.w / scale), h = Math.round(s.h / scale);
-    const key = [biome, x, y, w, h, aw, ah, stop.hole].join('|');
+    const key = [biome, x, y, w, h, aw, ah, stop.hole, A.WALKERS.p.name].join('|');
     if (surf.key !== key) {
       surf.key = key; surf.cv = document.createElement('canvas'); surf.cv.width = aw; surf.cv.height = ah;
       paintSurface(surf.cv.getContext('2d'), biome, x, y, w, h);
@@ -191,6 +191,10 @@ export function createScene({ canvas, hud }) {
       if (b[2] - b[0] > fwA || b[3] - b[1] > fhA) b = box(lan);
       if (b[2] - b[0] > fwA || b[3] - b[1] > fhA) b = box([lan[0]]);
       fx = (b[0] + b[2]) / 2; fy = (b[1] + b[3]) / 2 - 6;
+    } else if (mode === 'title') {
+      titlePos += dt * 0.8; if (titlePos > 116) { titlePos = 0; camX = camY = -1; }
+      [fx, fy] = holeXY(titlePos); fy += 30;
+      free = { x: 0, y: 0, w: L.W, h: L.H };
     } else {
       const [px, py] = holeXY(pos.p), [cx, cy] = holeXY(pos.c);
       if (Math.abs(py - cy) < ah * 0.6) { fx = (px + cx) / 2; fy = (py + cy) / 2; }
@@ -200,6 +204,7 @@ export function createScene({ canvas, hud }) {
     const tx = Math.max(0, Math.min(lane.canvas.width - aw, fx - (free.x + free.w / 2) / scale));
     const ty = Math.max(0, Math.min(lane.height - ah, fy - (free.y + free.h * 0.5) / scale));
     const k = Math.min(1, dt * 3);
+    if (camX < 0) { camX = tx; camY = ty; }
     camX += (tx - camX) * k; camY += (ty - camY) * k;
     const ix = Math.round(camX), iy = Math.round(camY);
 
@@ -215,7 +220,7 @@ export function createScene({ canvas, hud }) {
       if (o.x + 34 < x0 || o.x - 34 > x1 || o.y - 60 > y1 || o.y + 12 < y0) continue;
       list.push({ y: o.y, draw: () => drawObj(o, t, ix, iy, dt) });
     }
-    const walkersAt = mode === 'walk' || surfaceAlpha < 0.6 ? ['p', 'c'].map((w) => { const [x, y] = holeXY(pos[w]); return [x + (w === 'c' ? -4 : 4), y]; }) : null;
+    const walkersAt = mode === 'walk' || (mode === 'stop' && surfaceAlpha < 0.6) ? ['p', 'c'].map((w) => { const [x, y] = holeXY(pos[w]); return [x + (w === 'c' ? -4 : 4), y]; }) : null;
     crit.update(dt, t / 1000, walkersAt);
     crit.drawables(x0, y0, x1, y1, list);
     for (const w of ['p', 'c']) {
@@ -402,6 +407,9 @@ export function createScene({ canvas, hud }) {
       return new Promise((res) => { walkDone = res; });
     },
     say,
+    // Menu backdrop: drift slowly down the lane with nobody on it.
+    resume() { if (mode === 'title') { mode = 'stop'; camX = camY = -1; } },
+    title() { mode = 'title'; titlePos = 0; camX = camY = -1; speech.hidden = true; banner.hidden = true; bubble.hidden = true; deer = null; },
     react(label, who) {
       if (who !== 'c') return;
       const key = label.startsWith('Run') ? 'Run' : label;

@@ -24,8 +24,8 @@
   <button class="ibtn" id="soundBtn" aria-pressed="true" title="Sound effects" aria-label="Sound effects"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M0 3h2v2H0zM2 2h1v4H2zM3 1h1v6H3zM5 2h1v1H5zM6 1h1v1H6zM5 5h1v1H5zM6 6h1v1H6zM6 3h2v2H6z" fill="currentColor"/></svg></button>
   <button class="ibtn" id="historyBtn" title="What happened" aria-label="What happened"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M0 1h8v1H0zM0 3h8v1H0zM0 5h8v1H0zM0 7h5v1H0z" fill="currentColor"/></svg></button>
   <button class="ibtn" id="rulesBtn" title="How to play" aria-label="How to play"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M2 0h4v1H2zM6 1h1v3H6zM4 4h2v1H4zM3 5h2v1H3zM3 7h2v1H3zM1 1h1v1H1z" fill="currentColor"/></svg></button>
-  <button class="ibtn" id="newGameIcon" title="New game" aria-label="New game"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M2 0h4v1H2zM1 1h1v1H1zM6 1h1v1H6zM0 2h1v4H0zM7 2h1v2H7zM5 3h3v1H5zM1 6h1v1H1zM6 5h1v2H6zM2 7h4v1H2z" fill="currentColor"/></svg></button>
-  <button class="btn small" id="newGame">New game</button>
+  <button class="ibtn" id="menuIcon" title="Menu" aria-label="Menu"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M3 0h2v1H3zM2 1h1v1H2zM5 1h1v1H5zM1 2h1v1H1zM6 2h1v1H6zM0 3h8v1H0zM1 4h1v4H1zM6 4h1v4H6zM3 5h2v3H3zM2 7h1v1H2zM5 7h1v1H5z" fill="currentColor"/></svg></button>
+  <button class="btn small" id="menuBtn">Menu</button>
  </div>
 </div>
 
@@ -34,6 +34,38 @@
 <div id="barUI" class="bar-ui"></div>
 <div id="handUI" class="hand-ui"></div>
 <div id="fx" class="fx stage"></div>
+
+
+<div id="title" class="title-screen" hidden>
+ <div class="panel title-card">
+  <div class="title-art" id="titleArt" aria-hidden="true"></div>
+  <h1 class="logo">Cosy Cribbage</h1>
+  <p class="tagline">A game of cribbage on a country walk</p>
+  <div class="menu">
+   <button class="btn" id="tContinue">Continue</button>
+   <button class="btn" id="tNew">New game</button>
+   <button class="btn ghost" id="tWalker">Your walker</button>
+   <button class="btn ghost" id="tSettings">Settings</button>
+   <button class="btn ghost" id="tRules">How to play</button>
+  </div>
+  <p class="title-stats" id="tStats"></p>
+ </div>
+ <div class="panel sheet" id="walkerSheet" hidden>
+  <div class="dlg-head"><h2>Your walker</h2><button class="ibtn" data-back aria-label="Back"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M1 1h1v1H1zM2 2h1v1H2zM3 3h2v2H3zM5 2h1v1H5zM6 1h1v1H6zM2 5h1v1H2zM1 6h1v1H1zM5 5h1v1H5zM6 6h1v1H6z" fill="currentColor"/></svg></button></div>
+  <div class="walker-grid" id="walkerGrid"></div>
+ </div>
+ <div class="panel sheet" id="settingsSheet" hidden>
+  <div class="dlg-head"><h2>Settings</h2><button class="ibtn" data-back aria-label="Back"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M1 1h1v1H1zM2 2h1v1H2zM3 3h2v2H3zM5 2h1v1H5zM6 1h1v1H6zM2 5h1v1H2zM1 6h1v1H1zM5 5h1v1H5zM6 6h1v1H6z" fill="currentColor"/></svg></button></div>
+  <div class="setting"><span>Music</span><button class="toggle" id="sMusic" aria-pressed="true"><span></span></button></div>
+  <div class="setting"><span>Sound effects</span><button class="toggle" id="sSound" aria-pressed="true"><span></span></button></div>
+  <div class="setting col"><span>How Winnie plays</span>
+   <div class="seg" id="sWinnie" role="group" aria-label="How Winnie plays">
+    <button data-v="gentle">Gentle</button><button data-v="normal">Normal</button><button data-v="sharp">Sharp</button>
+   </div>
+   <small id="sWinnieNote"></small>
+  </div>
+ </div>
+</div>
 
 <div class="dialog" id="historyDlg" hidden><div class="dlg-head"><h2>What happened</h2><button class="ibtn" data-close aria-label="Close"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M1 1h1v1H1zM2 2h1v1H2zM3 3h2v2H3zM5 2h1v1H5zM6 1h1v1H6zM2 5h1v1H2zM1 6h1v1H1zM5 5h1v1H5zM6 6h1v1H6z" fill="currentColor"/></svg></button></div><div id="log" class="log"></div></div>
 <div class="dialog" id="rulesDlg" hidden><div class="dlg-head"><h2>How to play</h2><button class="ibtn" data-close aria-label="Close"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M1 1h1v1H1zM2 2h1v1H2zM3 3h2v2H3zM5 2h1v1H5zM6 1h1v1H6zM2 5h1v1H2zM1 6h1v1H1zM5 5h1v1H5zM6 6h1v1H6z" fill="currentColor"/></svg></button></div>

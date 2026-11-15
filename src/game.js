@@ -1,7 +1,10 @@
 // Game flow and rendering (prototype UI)
 import { SUITS, RL, RN, NAME, val, other, byRank, cardName, short, fullDeck, shuffled } from './cards.js';
 import { scoreHand, pegScore } from './scoring.js';
-import { compDiscard, compPeg } from './ai.js';
+import { compDiscard, compPeg, setLevel } from './ai.js';
+import { save, persist } from './save.js';
+import { recordGame, isUnlocked, howTo } from './unlocks.js';
+import { WALKERS, setPlayerWalker, walkerCanvas } from './walkers.js';
 import { generateLane } from './lane.js';
 import { createScene } from './scene.js';
 import { initAudio, sfx, setMusic, setSound, settings } from './sound.js';
@@ -28,7 +31,8 @@ function placeUI() {
 window.addEventListener('resize', () => { scene.relayout(); placeUI(); if (S) render(); });
 
 let S, gen = 0;
-const later = (fn, ms) => { const g = gen; setTimeout(() => { if (g === gen) fn(); }, ms); };
+let paused = false, held = [];
+const later = (fn, ms) => { const g = gen; setTimeout(() => { if (g !== gen) return; if (paused) held.push(fn); else fn(); }, ms); };
 
 function log(t){S.log.unshift(t);S.log=S.log.slice(0,9);}
 function addPts(who,pts,reason){
@@ -38,7 +42,7 @@ function addPts(who,pts,reason){
  sfx('score',pts);
  scene.setBanked(S.score);scene.react(reason,who);
  if(S.score[who]>=121){S.phase='over';S.winner=who;S.finished=false;log(`${NAME[who]} ${who==='p'?'reach':'reaches'} home at 121`);render();
-  later(()=>{document.body.classList.add('walking');scene.walk(S.score).then(()=>{if(S.phase!=='over')return;S.finished=true;document.body.classList.remove('walking');document.body.classList.add('finished');render();});},1300);
+  later(()=>{document.body.classList.add('walking');scene.walk(S.score).then(()=>{if(S.phase!=='over')return;S.finished=true;finishGame();document.body.classList.remove('walking');document.body.classList.add('finished');render();});},1300);
   return true;}
  return false;
 }
@@ -123,6 +127,7 @@ function nextShow(){
   scene.walk(S.score).then(()=>{if(S.phase!=='walking')return;document.body.classList.remove('walking');S.dealer=other(S.dealer);startRound();});
   return;}
  const st=sh.steps[sh.step];st.res=scoreHand(st.cards,S.starter,st.crib);st.shown=0;st.run=0;st.done=false;
+ if(st.who==='p'&&!st.crib)S.bestHand=Math.max(S.bestHand||0,st.res.total);
  render();
  if(!st.res.items.length){st.done=true;log(`${NAME[st.who]}: nothing in ${st.crib?'the crib':'hand'}`);later(render,300);return;}
  later(()=>revealNext(st),700);
@@ -178,7 +183,7 @@ function render(){
   centre=`<div class="centre"><div class="panel countbox" id="tally"><span class="label">${what}</span><b>${st.run}</b><span class="note">${note}</span></div></div>`;
  }else if(ph==='over'&&S.finished){
   const lose=other(S.winner),ls=S.score[lose];const sk=ls<61?' A double skunk!':ls<91?' A skunk!':'';
-  centre=`<div class="centre"><div class="panel overlay"><span class="total">${S.winner==='p'?'You made it home first!':'Winnie made it home first'}</span><span class="label">${S.score.p} to ${S.score.c}.${sk} Lane ${S.seed}.</span><button class="btn" data-act="new">Play again</button></div></div>`;
+  centre=`<div class="centre"><div class="panel overlay"><span class="total">${S.winner==='p'?'You made it home first!':'Winnie made it home first'}</span><span class="label">${S.score.p} to ${S.score.c}.${sk} Lane ${S.seed}.</span>${(S.newUnlocks||[]).map(u=>`<span class="unlock" data-walker="${u.id}">New walker: ${WALKERS[u.id].name}</span>`).join('')}<span class="row"><button class="btn" data-act="new">Play again</button><button class="btn ghost" data-act="menu">Menu</button></span></div></div>`;
  }else{
   const cur=P?P.pile:[],n=cur.length;
   const pile=cur.map((x,i)=>{const k=n-1-i,step=k<=2?k:2,dy=hashf(x.card.id,'y')*6,rt=hashf(x.card.id,'r')*(k<=2?5:10);
@@ -188,6 +193,7 @@ function render(){
   centre=`<div class="centre"><div class="panel countbox"><span class="label">Count</span><b>${P?P.count:0}</b></div><div class="pilewrap">${spent}<div class="pile">${pile}</div></div></div>`;
  }
  $id('surfaceUI').innerHTML=ph==='over'&&S.finished?centre:`${starter}${centre}${crib}`;
+ $id('surfaceUI').querySelectorAll('.unlock').forEach(e=>e.prepend(walkerCanvas(e.dataset.walker)));
  // your hand and the prompt
  let prompt='';
  if(ph==='discard')prompt=`Pick 2 for ${S.dealer==='p'?'your':"Winnie's"} crib`;
@@ -220,22 +226,79 @@ document.addEventListener('click',e=>{
  if(act==='next')return nextShow();
  if(act==='skip')return skipShow();
  if(act==='new')return newGame();
+ if(act==='menu')return showTitle();
  const id=b.dataset.id;if(!id)return;
  if(S.phase==='discard'){S.sel=S.sel.includes(id)?S.sel.filter(x=>x!==id):S.sel.length<2?[...S.sel,id]:[S.sel[1],id];render();}
  else if(S.phase==='peg'&&S.peg.turn==='p'){const c=S.peg.hand.p.find(x=>x.id===id);if(c&&S.peg.count+val(c)<=31)play('p',c);}
 });
-document.getElementById('newGame').addEventListener('click',newGame);
-document.getElementById('newGameIcon').addEventListener('click',newGame);
+$id('menuBtn').addEventListener('click',()=>showTitle());
+$id('menuIcon').addEventListener('click',()=>showTitle());
 for(const [btn,dlg] of [['historyBtn','historyDlg'],['rulesBtn','rulesDlg']]){
  document.getElementById(btn).addEventListener('click',()=>{const d=document.getElementById(dlg);d.hidden=!d.hidden;});
 }
 document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>{b.closest('.dialog').hidden=true;}));
 document.addEventListener('pointerdown',()=>initAudio(),{once:true});
 document.addEventListener('keydown',()=>initAudio(),{once:true});
-for(const [id,fn,key] of [['musicBtn',setMusic,'music'],['soundBtn',setSound,'sound']]){
- const b=document.getElementById(id);
- b.addEventListener('click',()=>{initAudio();const on=!settings[key];fn(on);b.setAttribute('aria-pressed',on);b.classList.toggle('off',!on);});
+// sound settings live in the save; the top bar buttons and the settings sheet share them
+function applySound(key,on){(key==='music'?setMusic:setSound)(on);save.settings[key]=on;persist();
+ for(const id of key==='music'?['musicBtn','sMusic']:['soundBtn','sSound']){const b=$id(id);b.setAttribute('aria-pressed',on);b.classList.toggle('off',!on);}}
+for(const [id,key] of [['musicBtn','music'],['soundBtn','sound'],['sMusic','music'],['sSound','sound']])
+ $id(id).addEventListener('click',()=>{initAudio();applySound(key,!settings[key]);});
+
+/* ---------- title screen ---------- */
+const WALKER_ORDER=['bobble','flatcap','wellies','beret','fox','hedgehog','badger','winnie'];
+const NOTES={gentle:'Relaxed. She makes the odd slip.',normal:'A fair game. Now and then she misjudges.',sharp:'She plays every card as well as she can.'};
+function inGame(){return !!(S&&S.phase&&!(S.phase==='over'&&S.finished));}
+function showTitle(){
+ if(document.body.classList.contains('walking'))return;
+ if(inGame())paused=true;
+ if(!lane){lane=generateLane(Math.floor(Math.random()*9000)+1000);scene.reset(lane);}
+ scene.title();document.body.classList.add('on-title');
+ for(const d of document.querySelectorAll('.dialog'))d.hidden=true;
+ showSheet(null);renderTitle();$id('title').hidden=false;
+ (inGame()?$id('tContinue'):$id('tNew')).focus();
 }
+function hideTitle(){$id('title').hidden=true;document.body.classList.remove('on-title');}
+function continueGame(){hideTitle();scene.resume();paused=false;const q=held;held=[];q.forEach(fn=>fn());render();}
+function startNew(){hideTitle();paused=false;held=[];newGame();}
+function showSheet(id){for(const sh of ['walkerSheet','settingsSheet'])$id(sh).hidden=sh!==id;document.querySelector('.title-card').hidden=!!id;}
+function renderTitle(){
+ $id('tContinue').hidden=!inGame();
+ $id('tNew').classList.toggle('ghost',inGame());
+ const art=$id('titleArt');art.replaceChildren(walkerCanvas(save.walker),walkerCanvas('winnie'));
+ const st=save.stats;
+ $id('tStats').textContent=st.games?`${st.games} ${st.games===1?'game':'games'} · ${st.wins} ${st.wins===1?'win':'wins'} · ${st.holes} holes walked`:'';
+ // walker picker
+ $id('walkerGrid').replaceChildren(...WALKER_ORDER.map(id=>{
+  const open=isUnlocked(id),b=document.createElement('button');
+  b.className='walker-tile'+(save.walker===id?' sel':'');b.disabled=!open;b.setAttribute('aria-pressed',save.walker===id);
+  b.append(walkerCanvas(id,!open));
+  const n=document.createElement('span');n.className='name';n.textContent=open?WALKERS[id].name:'Locked';b.append(n);
+  if(!open){const h=document.createElement('span');h.className='how';h.textContent=howTo(id);b.append(h);}
+  b.addEventListener('click',()=>{save.walker=id;persist();setPlayerWalker(id);renderTitle();});
+  return b;
+ }));
+ // settings
+ for(const b of $id('sWinnie').querySelectorAll('button'))b.setAttribute('aria-pressed',b.dataset.v===save.settings.winnie);
+ $id('sWinnieNote').textContent=NOTES[save.settings.winnie];
+}
+$id('tContinue').addEventListener('click',continueGame);
+$id('tNew').addEventListener('click',startNew);
+$id('tWalker').addEventListener('click',()=>showSheet('walkerSheet'));
+$id('tSettings').addEventListener('click',()=>showSheet('settingsSheet'));
+$id('tRules').addEventListener('click',()=>{$id('rulesDlg').hidden=false;});
+document.querySelectorAll('[data-back]').forEach(b=>b.addEventListener('click',()=>{showSheet(null);renderTitle();}));
+$id('sWinnie').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;save.settings.winnie=b.dataset.v;persist();setLevel(b.dataset.v);renderTitle();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$id('title').hidden&&inGame())continueGame();});
+
+function finishGame(){
+ if(S.recorded)return;S.recorded=true;
+ S.newUnlocks=recordGame({won:S.winner==='p',myScore:S.score.p,theirScore:S.score.c,bestHand:S.bestHand||0});
+}
+
+// apply saved choices
+setPlayerWalker(save.walker);setLevel(save.settings.winnie);
+applySound('music',save.settings.music);applySound('sound',save.settings.sound);
 window.__cc={scene,get S(){return S},get lane(){return lane},nextShow,confirmDiscard,play,sayGo,addPts};
 placeUI();
-newGame();
+showTitle();
