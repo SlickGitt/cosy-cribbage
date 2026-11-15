@@ -45,6 +45,7 @@
    <button class="btn" id="tContinue">Continue</button>
    <button class="btn" id="tNew">New game</button>
    <button class="btn ghost" id="tWalker">Your walker</button>
+   <button class="btn ghost" id="tCollection">Collection</button>
    <button class="btn ghost" id="tSettings">Settings</button>
    <button class="btn ghost" id="tRules">How to play</button>
   </div>
@@ -53,6 +54,10 @@
  <div class="panel sheet" id="walkerSheet" hidden>
   <div class="dlg-head"><h2>Your walker</h2><button class="ibtn" data-back aria-label="Back"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M1 1h1v1H1zM2 2h1v1H2zM3 3h2v2H3zM5 2h1v1H5zM6 1h1v1H6zM2 5h1v1H2zM1 6h1v1H1zM5 5h1v1H5zM6 6h1v1H6z" fill="currentColor"/></svg></button></div>
   <div class="walker-grid" id="walkerGrid"></div>
+ </div>
+ <div class="panel sheet wide" id="collectionSheet" hidden>
+  <div class="dlg-head"><h2>Collection</h2><button class="ibtn" data-back aria-label="Back"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M1 1h1v1H1zM2 2h1v1H2zM3 3h2v2H3zM5 2h1v1H5zM6 1h1v1H6zM2 5h1v1H2zM1 6h1v1H1zM5 5h1v1H5zM6 6h1v1H6z" fill="currentColor"/></svg></button></div>
+  <div id="collectionBody"></div>
  </div>
  <div class="panel sheet" id="settingsSheet" hidden>
   <div class="dlg-head"><h2>Settings</h2><button class="ibtn" data-back aria-label="Back"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M1 1h1v1H1zM2 2h1v1H2zM3 3h2v2H3zM5 2h1v1H5zM6 1h1v1H6zM2 5h1v1H2zM1 6h1v1H1zM5 5h1v1H5zM6 6h1v1H6z" fill="currentColor"/></svg></button></div>
@@ -67,6 +72,7 @@
  </div>
 </div>
 
+<div id="toasts" class="toasts" aria-live="polite"></div>
 <div class="dialog" id="historyDlg" hidden><div class="dlg-head"><h2>What happened</h2><button class="ibtn" data-close aria-label="Close"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M1 1h1v1H1zM2 2h1v1H2zM3 3h2v2H3zM5 2h1v1H5zM6 1h1v1H6zM2 5h1v1H2zM1 6h1v1H1zM5 5h1v1H5zM6 6h1v1H6z" fill="currentColor"/></svg></button></div><div id="log" class="log"></div></div>
 <div class="dialog" id="rulesDlg" hidden><div class="dlg-head"><h2>How to play</h2><button class="ibtn" data-close aria-label="Close"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M1 1h1v1H1zM2 2h1v1H2zM3 3h2v2H3zM5 2h1v1H5zM6 1h1v1H6zM2 5h1v1H2zM1 6h1v1H1zM5 5h1v1H5zM6 6h1v1H6z" fill="currentColor"/></svg></button></div>
  <ul>

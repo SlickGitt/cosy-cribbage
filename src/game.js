@@ -3,13 +3,14 @@ import { SUITS, RL, RN, NAME, val, other, byRank, cardName, short, fullDeck, shu
 import { scoreHand, pegScore } from './scoring.js';
 import { compDiscard, compPeg, setLevel } from './ai.js';
 import { save, persist } from './save.js';
-import { recordGame, isUnlocked, howTo } from './unlocks.js';
+import { recordGame, isUnlocked, howTo, award, discover, REWARDS, RANKS } from './unlocks.js';
+import { openCollection, applyGear, rewardIcon } from './collection.js';
 import { WALKERS, setPlayerWalker, walkerCanvas } from './walkers.js';
 import { generateLane } from './lane.js';
 import { createScene } from './scene.js';
 import { initAudio, sfx, setMusic, setSound, settings } from './sound.js';
 
-const scene = createScene({ canvas: document.getElementById('scene'), hud: document.getElementById('hud') });
+const scene = createScene({ canvas: document.getElementById('scene'), hud: document.getElementById('hud'), onFind: (k) => announce(discover(k)) });
 let lane = null;
 const $id = (id) => document.getElementById(id);
 
@@ -76,7 +77,7 @@ function confirmDiscard(){
  S.kept={p:[...S.hand.p],c:[...S.hand.c]};
  S.starter=S.deck.pop();S.phase='cut';
  log(`Starter: ${cardName(S.starter)}`);
- if(S.starter.r===11){pop('+2 His heels','#starter',S.dealer,200);if(addPts(S.dealer,2,'His heels'))return;}
+ if(S.starter.r===11){if(S.dealer==='p')feat('heels');pop('+2 His heels','#starter',S.dealer,200);if(addPts(S.dealer,2,'His heels'))return;}
  render();
  later(()=>{S.phase='peg';S.peg={count:0,seq:[],pile:[],spent:0,hand:{p:[...S.hand.p],c:[...S.hand.c]},turn:other(S.dealer),go:{p:false,c:false},last:null};log(`${NAME[other(S.dealer)]} ${S.dealer==='c'?'lead':'leads'} the pegging`);advance();},1100);
 }
@@ -87,6 +88,7 @@ function play(who,card){
  sfx('card');P.count+=val(card);P.seq.push(card);P.pile.push({card,who});P.last=who;P.fresh=card.id;
  log(`${NAME[who]} ${who==='p'?'play':'plays'} ${cardName(card)}. Count ${P.count}`);
  const items=pegScore(P.seq,P.count);
+ if(who==='p')for(const it of items){if(it.label==='31')feat('thirtyone');if(it.label==='Pair royal')feat('pairroyal');if(it.label==='Double pair royal')feat('dpr');}
  P.turn=other(who);
  for(const it of items)if(addPts(who,it.pts,it.label)){items.forEach((x,k)=>pop(`+${x.pts} ${x.label}`,'.pile',who,k*450));return;}
  render();
@@ -127,7 +129,8 @@ function nextShow(){
   scene.walk(S.score).then(()=>{if(S.phase!=='walking')return;document.body.classList.remove('walking');S.dealer=other(S.dealer);startRound();});
   return;}
  const st=sh.steps[sh.step];st.res=scoreHand(st.cards,S.starter,st.crib);st.shown=0;st.run=0;st.done=false;
- if(st.who==='p'&&!st.crib)S.bestHand=Math.max(S.bestHand||0,st.res.total);
+ if(st.who==='p'){if(!st.crib)S.bestHand=Math.max(S.bestHand||0,st.res.total);const T=st.res.total;
+  if(T>=20)feat('twenty');if(T===28)feat('twentyeight');if(T===29)feat('perfect');if(st.res.items.some(i=>i.label==='Flush of 5'))feat('flush5');}
  render();
  if(!st.res.items.length){st.done=true;log(`${NAME[st.who]}: nothing in ${st.crib?'the crib':'hand'}`);later(render,300);return;}
  later(()=>revealNext(st),700);
@@ -183,7 +186,7 @@ function render(){
   centre=`<div class="centre"><div class="panel countbox" id="tally"><span class="label">${what}</span><b>${st.run}</b><span class="note">${note}</span></div></div>`;
  }else if(ph==='over'&&S.finished){
   const lose=other(S.winner),ls=S.score[lose];const sk=ls<61?' A double skunk!':ls<91?' A skunk!':'';
-  centre=`<div class="centre"><div class="panel overlay"><span class="total">${S.winner==='p'?'You made it home first!':'Winnie made it home first'}</span><span class="label">${S.score.p} to ${S.score.c}.${sk} Lane ${S.seed}.</span>${(S.newUnlocks||[]).map(u=>`<span class="unlock" data-walker="${u.id}">New walker: ${WALKERS[u.id].name}</span>`).join('')}<span class="row"><button class="btn" data-act="new">Play again</button><button class="btn ghost" data-act="menu">Menu</button></span></div></div>`;
+  centre=`<div class="centre"><div class="panel overlay"><span class="total">${S.winner==='p'?'You made it home first!':'Winnie made it home first'}</span><span class="label">${S.score.p} to ${S.score.c}.${sk} Lane ${S.seed}.</span>${(S.newUnlocks||[]).filter(u=>u.reward).map(u=>`<span class="unlock" data-reward="${u.reward}">${u.title}: ${REWARDS[u.reward].name}${REWARDS[u.reward].kind==='walker'?' walker':''}</span>`).join('')}<span class="row"><button class="btn" data-act="new">Play again</button><button class="btn ghost" data-act="menu">Menu</button></span></div></div>`;
  }else{
   const cur=P?P.pile:[],n=cur.length;
   const pile=cur.map((x,i)=>{const k=n-1-i,step=k<=2?k:2,dy=hashf(x.card.id,'y')*6,rt=hashf(x.card.id,'r')*(k<=2?5:10);
@@ -193,7 +196,7 @@ function render(){
   centre=`<div class="centre"><div class="panel countbox"><span class="label">Count</span><b>${P?P.count:0}</b></div><div class="pilewrap">${spent}<div class="pile">${pile}</div></div></div>`;
  }
  $id('surfaceUI').innerHTML=ph==='over'&&S.finished?centre:`${starter}${centre}${crib}`;
- $id('surfaceUI').querySelectorAll('.unlock').forEach(e=>e.prepend(walkerCanvas(e.dataset.walker)));
+ $id('surfaceUI').querySelectorAll('.unlock').forEach(e=>e.prepend(rewardIcon(e.dataset.reward)));
  // your hand and the prompt
  let prompt='';
  if(ph==='discard')prompt=`Pick 2 for ${S.dealer==='p'?'your':"Winnie's"} crib`;
@@ -261,13 +264,14 @@ function showTitle(){
 function hideTitle(){$id('title').hidden=true;document.body.classList.remove('on-title');}
 function continueGame(){hideTitle();scene.resume();paused=false;const q=held;held=[];q.forEach(fn=>fn());render();}
 function startNew(){hideTitle();paused=false;held=[];newGame();}
-function showSheet(id){for(const sh of ['walkerSheet','settingsSheet'])$id(sh).hidden=sh!==id;document.querySelector('.title-card').hidden=!!id;}
+function showSheet(id){for(const sh of ['walkerSheet','settingsSheet','collectionSheet'])$id(sh).hidden=sh!==id;document.querySelector('.title-card').hidden=!!id;}
+function rankName(){return RANKS.filter(r=>save.stats.holes>=r.holes).pop().name;}
 function renderTitle(){
  $id('tContinue').hidden=!inGame();
  $id('tNew').classList.toggle('ghost',inGame());
  const art=$id('titleArt');art.replaceChildren(walkerCanvas(save.walker),walkerCanvas('winnie'));
  const st=save.stats;
- $id('tStats').textContent=st.games?`${st.games} ${st.games===1?'game':'games'} · ${st.wins} ${st.wins===1?'win':'wins'} · ${st.holes} holes walked`:'';
+ $id('tStats').textContent=st.games?`${rankName()} · ${st.wins} ${st.wins===1?'win':'wins'} · ${st.holes} holes walked`:'';
  // walker picker
  $id('walkerGrid').replaceChildren(...WALKER_ORDER.map(id=>{
   const open=isUnlocked(id),b=document.createElement('button');
@@ -287,17 +291,29 @@ $id('tNew').addEventListener('click',startNew);
 $id('tWalker').addEventListener('click',()=>showSheet('walkerSheet'));
 $id('tSettings').addEventListener('click',()=>showSheet('settingsSheet'));
 $id('tRules').addEventListener('click',()=>{$id('rulesDlg').hidden=false;});
+$id('tCollection').addEventListener('click',()=>{showSheet('collectionSheet');openCollection($id('collectionBody'),()=>{applyGear(scene);renderTitle();});});
 document.querySelectorAll('[data-back]').forEach(b=>b.addEventListener('click',()=>{showSheet(null);renderTitle();}));
 $id('sWinnie').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;save.settings.winnie=b.dataset.v;persist();setLevel(b.dataset.v);renderTitle();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$id('title').hidden&&inGame())continueGame();});
 
+// A feat in play: remember it for the end screen and give a quiet nod now.
+function feat(id){const a=award(id);if(!a)return;(S.earned=S.earned||[]).push(a);announce([a]);}
+function announce(list){
+ for(const a of list){
+  const t=document.createElement('div');t.className='toast'+(a.tier==='legendary'?' legend':'');
+  const txt=document.createElement('span');txt.textContent=a.reward?`${a.title} · ${REWARDS[a.reward].name} unlocked`:a.title;
+  if(a.reward)t.append(rewardIcon(a.reward));t.append(txt);
+  $id('toasts').append(t);sfx('chime');setTimeout(()=>t.remove(),4200);
+ }
+}
+
 function finishGame(){
  if(S.recorded)return;S.recorded=true;
- S.newUnlocks=recordGame({won:S.winner==='p',myScore:S.score.p,theirScore:S.score.c,bestHand:S.bestHand||0});
+ S.newUnlocks=[...(S.earned||[]),...recordGame({won:S.winner==='p',myScore:S.score.p,theirScore:S.score.c,bestHand:S.bestHand||0,level:save.settings.winnie})];
 }
 
 // apply saved choices
-setPlayerWalker(save.walker);setLevel(save.settings.winnie);
+setPlayerWalker(save.walker);setLevel(save.settings.winnie);applyGear(scene);
 applySound('music',save.settings.music);applySound('sound',save.settings.sound);
 window.__cc={scene,get S(){return S},get lane(){return lane},nextShow,confirmDiscard,play,sayGo,addPts};
 placeUI();

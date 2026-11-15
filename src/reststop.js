@@ -265,3 +265,29 @@ export function stopLane({ from, to, count, start, startN, dir = 'down' }) {
   }
   return { points, holes };
 }
+
+// Tartan: green ground with crossing navy and red bands.
+export function tartan(c, x, y, w, h) {
+  rect(c, x + 3, y + 3, w, h, 'rgba(20,10,10,0.3)');
+  rect(c, x, y, w, h, '#3E5A3E');
+  c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip();
+  for (let i = 0; i < w; i += 16) { rect(c, x + i + 4, y, 6, h, 'rgba(30,40,80,0.55)'); rect(c, x + i + 12, y, 1, h, 'rgba(210,60,50,0.8)'); }
+  for (let j = 0; j < h; j += 16) { rect(c, x, y + j + 4, w, 6, 'rgba(30,40,80,0.5)'); rect(c, x, y + j + 12, w, 1, 'rgba(210,60,50,0.8)'); }
+  for (let j = 0; j < h; j += 2) for (let i = (j / 2) % 2; i < w; i += 4) rect(c, x + i, y + j, 1, 1, 'rgba(255,255,255,0.05)');
+  c.restore();
+  for (let i = 0; i < w; i += 3) { rect(c, x + i, y - 2, 1, 2, '#3E5A3E'); rect(c, x + i + 1, y + h, 1, 2, '#3E5A3E'); }
+}
+
+// Patchwork: squares of different fabrics, stitched.
+export function patchwork(c, x, y, w, h, rng) {
+  rect(c, x + 3, y + 3, w, h, 'rgba(20,10,10,0.3)');
+  const cols = ['#C98272', '#E2C478', '#8EAE6E', '#7A94B4', '#F2E4CC', '#B07AA8', '#E8A060'];
+  const q = 14;
+  for (let j = 0; j < h; j += q) for (let i = 0; i < w; i += q) {
+    const col = cols[Math.floor(rng() * cols.length)], ww = Math.min(q, w - i), hh = Math.min(q, h - j);
+    rect(c, x + i, y + j, ww, hh, col);
+    if (rng() < 0.5) for (let k = 2; k < ww - 1; k += 4) for (let l = 2; l < hh - 1; l += 4) rect(c, x + i + k, y + j + l, 1, 1, 'rgba(255,255,255,0.35)');
+    for (let k = 0; k < ww; k += 2) rect(c, x + i + k, y + j, 1, 1, 'rgba(60,30,30,0.35)');
+    for (let l = 0; l < hh; l += 2) rect(c, x + i, y + j + l, 1, 1, 'rgba(60,30,30,0.35)');
+  }
+}

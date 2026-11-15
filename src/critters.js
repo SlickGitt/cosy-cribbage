@@ -95,6 +95,7 @@ export function makeCritters(specs, objects, seed, hooks) {
 
   function poke(cr, by = 'click') {
     if (cr.gone) return false;
+    if (by === 'click' && hooks.found) hooks.found(cr.kind);
     if (cr.kind === 'sheep') {
       if (by === 'click') { sfx('baa'); say(cr, rng.pick(['Baa!', 'Baaa!', 'Baa-aa!'])); }
       cr.hop = 0.35;
@@ -206,7 +207,7 @@ export function makeCritters(specs, objects, seed, hooks) {
     hit(ax, ay) {
       let best = null, bd = 1e9;
       for (const cr of list) {
-        if (!visible(cr) || cr.kind === 'butterfly') continue;
+        if (!visible(cr)) continue;
         const d = Math.hypot(cr.x - ax, (cr.y - 4 - (cr.z || 0)) - ay);
         if (d < (cr.kind === 'cow' ? 11 : 8) && d < bd) { bd = d; best = cr; }
       }
@@ -224,4 +225,15 @@ export function makeCritters(specs, objects, seed, hooks) {
     },
     update,
   };
+}
+
+// A picture of an animal for the field guide.
+import * as A from './art.js';
+export function critterIcon(kind) {
+  const cv = document.createElement('canvas'); cv.className = 'px-sprite critter-icon';
+  if (kind === 'deer') { cv.width = 18; cv.height = 18; A.deer(cv.getContext('2d'), 2, 9); return cv; }
+  if (kind === 'mushroom') { cv.width = 14; cv.height = 10; A.mushrooms(cv.getContext('2d'), 3, 4, makeRng(3)); return cv; }
+  const f = kind === 'butterfly' ? 'a' : kind === 'squirrel' ? 'sit' : 'stand', s = frame(kind, f, false);
+  cv.width = s.cv.width; cv.height = s.cv.height; cv.getContext('2d').drawImage(s.cv, 0, 0);
+  return cv;
 }

@@ -6,7 +6,7 @@
 import { rect, oval } from './pixel.js';
 import * as A from './art.js';
 import { makeLeaves } from './weather.js';
-import { gingham, stumpTable, planks, straw, stone, cloth, stripes, prop, seated, lantern } from './reststop.js';
+import { gingham, tartan, patchwork, stumpTable, planks, straw, stone, cloth, stripes, prop, seated, lantern } from './reststop.js';
 import { BIOMES } from './biomes.js';
 import { makeRng } from './pixel.js';
 import { sfx, initAudio } from './sound.js';
@@ -18,7 +18,10 @@ const LINES = {
   'Last card': ['Last card, thank you.'], 'His heels': ['His heels, two for me!'], Run: ['A little run!'],
 };
 
-export function createScene({ canvas, hud }) {
+const RUGS = { red: ['#C98272', '#E2AE9E', '#F2E4CC'], blue: ['#6A8AB4', '#A8BCD8', '#EEF0F4'], mustard: ['#C89A3A', '#E2C478', '#F4E8C8'] };
+export const LANTERNS = { gold: '#F2B63C', teal: '#3EC8C0', rose: '#F27A9A', firefly: '#B8F060' };
+
+export function createScene({ canvas, hud, onFind = () => {} }) {
   const c = canvas.getContext('2d');
   hud.innerHTML = `
     <div class="lane-tag you" data-tag="p" hidden>You</div>
@@ -36,7 +39,7 @@ export function createScene({ canvas, hud }) {
   let lane = null, scale = 4, aw = 0, ah = 0, camX = 0, camY = 0, last = 0, L = null;
   let mode = 'stop', surfaceAlpha = 1, stop = { from: { p: 0, c: 0 }, hole: 0, biome: 'meadow' }, banked = { p: 0, c: 0 };
   let pos = { p: 0, c: 0 }, target = { p: 0, c: 0 }, stepAt = { p: 0, c: 0 }, walkDone = null;
-  let surf = { key: '', cv: null }, titlePos = 0, clouds = null, crit = null, parts = [], light = null, smokeAt = 0, deer = null, seenForest = false, visited = new Set(['meadow']), bannerTimer = 0, speechTimer = 0, leaves = null;
+  let gear = { rug: 'red', lantern: 'gold' }, surf = { key: '', cv: null }, titleY = -1, titleX = 0, looping = false, clouds = null, crit = null, parts = [], light = null, smokeAt = 0, deer = null, seenForest = false, visited = new Set(['meadow']), bannerTimer = 0, speechTimer = 0, leaves = null;
 
   // ---- layout: where the lane, the surface, the hand and the action bar go on this screen.
   // u is the UI scale (1 at 1440x900); card widths are worked out here so the
@@ -46,8 +49,9 @@ export function createScene({ canvas, hud }) {
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
     const u = portrait ? clamp(W / 400, 0.8, 1.4) : clamp(Math.min(W / 1440, H / 900), 0.8, 2);
     scale = portrait ? Math.max(2, W / 140) : Math.max(2.4, H / 225);
-    aw = Math.ceil(W / scale); ah = Math.ceil(H / scale);
-    canvas.width = aw; canvas.height = ah; canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    // two spare art pixels each way so the view can scroll by fractions of a pixel
+    aw = Math.ceil(W / scale) + 2; ah = Math.ceil(H / scale) + 2;
+    canvas.width = aw; canvas.height = ah; canvas.style.width = aw * scale + 'px'; canvas.style.height = ah * scale + 'px';
     leaves = makeLeaves(aw, ah, Math.round((aw * ah) / 2600), 9);
     const seatH = Math.round(17 * scale);
     const oppH = (cw) => 18 * u + 0.6 * cw * 1.42 + 12 * u;      // Winnie's row on the surface
@@ -128,7 +132,7 @@ export function createScene({ canvas, hud }) {
         seenForest = true;
         const k = Math.min(121, h + 3), a = holes[Math.max(0, k - 1)], bb = holes[Math.min(121, k + 1)];
         const ang = Math.atan2(bb.y - a.y, bb.x - a.x);
-        deer = { x: holes[k].x - Math.sin(ang) * 34 + 4, y: holes[k].y + Math.cos(ang) * 34, until: performance.now() + 7000 };
+        deer = { x: holes[k].x - Math.sin(ang) * 34 + 4, y: holes[k].y + Math.cos(ang) * 34, until: performance.now() + 7000 }; onFind('deer');
         bubble.textContent = 'A deer stops to watch you pass.';
         sfx('chime');
       }
@@ -138,7 +142,7 @@ export function createScene({ canvas, hud }) {
 
   function drawSurface(biome) {
     const s = L.surface, x = Math.round(s.x / scale), y = Math.round(s.y / scale), w = Math.round(s.w / scale), h = Math.round(s.h / scale);
-    const key = [biome, x, y, w, h, aw, ah, stop.hole, A.WALKERS.p.name].join('|');
+    const key = [biome, x, y, w, h, aw, ah, stop.hole, A.WALKERS.p.name, gear.rug].join('|');
     if (surf.key !== key) {
       surf.key = key; surf.cv = document.createElement('canvas'); surf.cv.width = aw; surf.cv.height = ah;
       paintSurface(surf.cv.getContext('2d'), biome, x, y, w, h);
@@ -153,7 +157,9 @@ export function createScene({ canvas, hud }) {
     else if (B.surface === 'stone') stone(c, x, y, w, h, rng);
     else if (B.surface === 'cloth') cloth(c, x, y, w, h);
     else if (B.surface === 'stripes') stripes(c, x, y, w, h);
-    else gingham(c, x, y, w, h, B.rug);
+    else if (biome === 'meadow' && gear.rug === 'tartan') tartan(c, x, y, w, h);
+    else if (biome === 'meadow' && gear.rug === 'patchwork') patchwork(c, x, y, w, h, rng);
+    else gingham(c, x, y, w, h, biome === 'meadow' ? RUGS[gear.rug] || B.rug : B.rug);
     // something set down in the empty corner beside you
     prop(c, B.prop, Math.round(Math.min(x + w * 0.9 - 8, x + w - 32)), y + 6, rng);
     for (const st of L.seats) seated(c, st.who, st.x / scale, st.y / scale);
@@ -192,8 +198,14 @@ export function createScene({ canvas, hud }) {
       if (b[2] - b[0] > fwA || b[3] - b[1] > fhA) b = box([lan[0]]);
       fx = (b[0] + b[2]) / 2; fy = (b[1] + b[3]) / 2 - 6;
     } else if (mode === 'title') {
-      titlePos += dt * 0.8; if (titlePos > 116) { titlePos = 0; camX = camY = -1; }
-      [fx, fy] = holeXY(titlePos); fy += 30;
+      // a steady glide straight down the lane, easing sideways to follow its bends
+      const H0 = lane.holes, top = H0[0].y, end = H0[112].y;
+      if (titleY < 0) { titleY = top + ah * 0.4; titleX = laneX(titleY); }
+      titleY += dt * 9;
+      titleX += (laneX(titleY + 40) - titleX) * Math.min(1, dt * 0.35);
+      if (titleY > end && !looping) { looping = true; canvas.style.transition = 'opacity .7s'; canvas.style.opacity = '0';
+        setTimeout(() => { titleY = top + ah * 0.4; titleX = laneX(titleY); canvas.style.opacity = '1'; looping = false; }, 750); }
+      fx = titleX; fy = titleY + 20;
       free = { x: 0, y: 0, w: L.W, h: L.H };
     } else {
       const [px, py] = holeXY(pos.p), [cx, cy] = holeXY(pos.c);
@@ -203,10 +215,14 @@ export function createScene({ canvas, hud }) {
     }
     const tx = Math.max(0, Math.min(lane.canvas.width - aw, fx - (free.x + free.w / 2) / scale));
     const ty = Math.max(0, Math.min(lane.height - ah, fy - (free.y + free.h * 0.5) / scale));
-    const k = Math.min(1, dt * 3);
+    const k = mode === 'title' ? 1 : Math.min(1, dt * 3);
     if (camX < 0) { camX = tx; camY = ty; }
     camX += (tx - camX) * k; camY += (ty - camY) * k;
-    const ix = Math.round(camX), iy = Math.round(camY);
+    // While moving, draw at whole pixels and slide the canvas by the fraction left
+    // over, so scrolling is smooth. At a rest stop, snap so the table lines up.
+    const glide = mode !== 'stop' || surfaceAlpha < 0.02;
+    const ix = glide ? Math.floor(camX) : Math.round(camX), iy = glide ? Math.floor(camY) : Math.round(camY);
+    canvas.style.transform = glide ? `translate(${(-(camX - ix) * scale).toFixed(2)}px,${(-(camY - iy) * scale).toFixed(2)}px)` : '';
 
     rect(c, 0, 0, aw, ah, '#55702E');
     const sw = Math.min(aw, lane.canvas.width - ix), sh = Math.min(ah, lane.height - iy);
@@ -230,7 +246,7 @@ export function createScene({ canvas, hud }) {
       for (let i = stop.from[w] + 1; i < banked[w]; i++) { const [hx, hy] = holeXY(i); rect(c, hx - 1 - ix, hy - 1 - iy, 2, 2, w === 'p' ? '#FFD48A' : '#D8B0E8'); }
       const [lx, ly] = holeXY(banked[w]);
       const side = w === 'p' ? 9 : -9;
-      list.push({ y: ly + 2, draw: () => lantern(c, lx + side - ix, ly + 2 - iy, w === 'p' ? '#F2B63C' : '#B07AC8') });
+      list.push({ y: ly + 2, draw: () => lantern(c, lx + side - ix, ly + 2 - iy, w === 'p' ? LANTERNS[gear.lantern] || '#F2B63C' : '#B07AC8') });
       ltags[w].textContent = `${w === 'p' ? 'You' : 'Winnie'} to ${banked[w]}`;
       placeIn(ltags[w], lx + side, ly - 14, L.free);
     }
@@ -289,6 +305,12 @@ export function createScene({ canvas, hud }) {
     requestAnimationFrame(frame);
   }
 
+  // Where the lane is across, at a given height.
+  function laneX(y) {
+    const H0 = lane.holes;
+    for (let i = 1; i < H0.length; i++) if (H0[i].y >= y) { const a = H0[i - 1], b = H0[i], t = (y - a.y) / Math.max(1, b.y - a.y); return a.x + (b.x - a.x) * Math.max(0, Math.min(1, t)); }
+    return H0[H0.length - 1].x;
+  }
   // A scenery sprite. Tall things sway at the top; a shaken tree rocks for a moment.
   function drawObj(o, t, ix, iy, dt) {
     const s = o.s, bx = o.x - s.ax - ix, by = o.y - s.ay - iy;
@@ -361,7 +383,7 @@ export function createScene({ canvas, hud }) {
     if (h.cr) { crit.poke(h.cr); return; }
     const o = h.o;
     if (o.kind === 'mush') {
-      sfx('pop');
+      sfx('pop'); onFind('mushroom');
       for (let i = 0; i < 8; i++) parts.push({ x: o.x + Math.random() * 6 - 3, y: o.y - 3, vx: Math.random() * 16 - 8, vy: -Math.random() * 14 - 4, life: 0.9, max: 0.9, col: '#F2EEDC' });
       return;
     }
@@ -386,7 +408,7 @@ export function createScene({ canvas, hud }) {
     relayout: layout,
     reset(newLane) {
       lane = newLane; clouds = null; deer = null; seenForest = false; visited = new Set(['meadow']); parts = [];
-      crit = makeCritters(lane.critters, lane.objects, lane.seed, { say: sayAt, clear: (x, y) => lane.free(x, y), spot: (x, y) => lane.spotNear(x, y) }); bubble.hidden = true; banner.hidden = true; speech.hidden = true;
+      crit = makeCritters(lane.critters, lane.objects, lane.seed, { found: onFind, say: sayAt, clear: (x, y) => lane.free(x, y), spot: (x, y) => lane.spotNear(x, y) }); bubble.hidden = true; banner.hidden = true; speech.hidden = true;
       pos = { p: 0, c: 0 }; target = { p: 0, c: 0 };
       this.setStop({ p: 0, c: 0 });
       const [x, y] = holeXY(0); camX = Math.max(0, x - L.free.w / 2 / scale); camY = Math.max(0, y - L.free.h / 2 / scale);
@@ -408,8 +430,9 @@ export function createScene({ canvas, hud }) {
     },
     say,
     // Menu backdrop: drift slowly down the lane with nobody on it.
+    setGear(g) { gear = { ...gear, ...g }; surf.key = ''; },
     resume() { if (mode === 'title') { mode = 'stop'; camX = camY = -1; } },
-    title() { mode = 'title'; titlePos = 0; camX = camY = -1; speech.hidden = true; banner.hidden = true; bubble.hidden = true; deer = null; },
+    title() { mode = 'title'; titleY = -1; camX = camY = -1; speech.hidden = true; banner.hidden = true; bubble.hidden = true; deer = null; },
     react(label, who) {
       if (who !== 'c') return;
       const key = label.startsWith('Run') ? 'Run' : label;

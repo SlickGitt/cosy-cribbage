@@ -71,6 +71,8 @@ export function sfx(name, n = 1) {
     const beats = name === 'flap' ? 4 : name === 'scurry' ? 5 : 7;
     for (let i = 0; i < beats; i++) { const s0 = t + (i * dur) / beats; g.gain.exponentialRampToValueAtTime(name === 'rustle' ? 0.12 : 0.18, s0 + 0.01); g.gain.exponentialRampToValueAtTime(0.004, s0 + dur / beats); }
     s.connect(f); f.connect(g); g.connect(sfxBus); s.start(t); s.stop(t + dur + 0.05);
+  } else if (name === 'chime') {
+    [784, 1047, 1319].forEach((f, i) => tone(f, t + i * 0.09, 0.5, 'sine', 0.06));
   } else if (name === 'pop') {
     const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(700, t); o.frequency.exponentialRampToValueAtTime(220, t + 0.09);
     g.gain.setValueAtTime(0.15, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12); o.connect(g); g.connect(sfxBus); o.start(t); o.stop(t + 0.15);
