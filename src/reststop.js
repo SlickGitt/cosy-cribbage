@@ -27,19 +27,19 @@ export function lantern(c, x, y, col) {
   for (let i = 0; i < 4; i++) rect(c, x + 1, y - 6 + i, 5 - i, 1, col);
 }
 
-export function gingham(c, x, y, w, h) {
+export function gingham(c, x, y, w, h, pal = ['#C98272', '#E2AE9E', '#F2E4CC']) {
   rect(c, x + 3, y + 3, w, h, 'rgba(20,10,10,0.3)');
   const q = 10;
   for (let j = 0; j < h; j += q) for (let i = 0; i < w; i += q) {
     const a = (i / q) % 2, b = (j / q) % 2;
-    rect(c, x + i, y + j, Math.min(q, w - i), Math.min(q, h - j), a && b ? '#C98272' : a || b ? '#E2AE9E' : '#F2E4CC');
+    rect(c, x + i, y + j, Math.min(q, w - i), Math.min(q, h - j), a && b ? pal[0] : a || b ? pal[1] : pal[2]);
   }
   for (let j = 0; j < h; j += 2) for (let i = (j / 2) % 2; i < w; i += 6) rect(c, x + i, y + j, 1, 1, 'rgba(255,255,255,0.12)');
   for (let i = 0; i < w; i += 3) { rect(c, x + i, y - 2, 1, 2, '#F5EBDA'); rect(c, x + i + 1, y + h, 1, 2, '#F5EBDA'); }
 }
 
 // Rows of a rounded rectangle, drawn pixel by pixel so the edge stays crisp.
-function rrect(c, x, y, w, h, r, col) {
+export function rrect(c, x, y, w, h, r, col) {
   for (let j = 0; j < h; j++) {
     const d = j < r ? r - j - 0.5 : j >= h - r ? j - (h - r) + 0.5 : 0;
     const inset = d ? Math.round(r - Math.sqrt(Math.max(0, r * r - d * d))) : 0;
@@ -62,6 +62,101 @@ export function stumpTable(c, x, y, w, h) {
   }
   for (let i = 0; i < 26; i++) rect(c, x + w * 0.62 + i * 1.3, y + h * 0.3 + i * 0.6, 1, 1, '#9A6230');
   rect(c, x + 6, y + 3, w * 0.3, 1, 'rgba(255,240,210,0.35)');
+}
+
+// Jetty decking: boards across, with posts at the corners and water at the ends.
+export function planks(c, x, y, w, h) {
+  rect(c, x - 6, y + h - 2, w + 12, 8, '#2E5A7A'); rect(c, x - 6, y + h + 1, w + 12, 1, '#9CCBE8');
+  rect(c, x + 3, y + 4, w, h, 'rgba(20,10,10,0.3)');
+  rect(c, x, y, w, h, '#B07E46');
+  for (let j = 0; j < h; j += 6) { rect(c, x, y + j, w, 1, '#7A4E2A'); for (let i = (j / 6) % 2 ? 10 : 30; i < w; i += 40) rect(c, x + i, y + j + 1, 1, 5, '#8A5A32'); }
+  for (let j = 3; j < h; j += 6) for (let i = 2; i < w; i += 40) rect(c, x + i, y + j, 1, 1, '#5A3622');
+  rect(c, x, y, w, 1, '#D0A06A');
+  for (const px of [x - 3, x + w - 1]) for (const py of [y - 2, y + h - 6]) { rect(c, px, py, 4, 8, '#5A3622'); rect(c, px, py, 4, 1, '#7A4E32'); }
+}
+
+// The top of a big round bale: straw, with twine.
+export function straw(c, x, y, w, h, rng) {
+  rrect(c, x + 3, y + 4, w, h, 6, 'rgba(20,10,10,0.3)');
+  rrect(c, x, y, w, h, 6, '#E2C064');
+  for (let i = 0; i < w * h / 6; i++) rect(c, x + 2 + rng() * (w - 6), y + 2 + rng() * (h - 4), rng.int(2, 4), 1, rng.pick(['#C8A04A', '#F2D888', '#D4AE52']));
+  for (let i = w / 5; i < w; i += w / 5) rect(c, x + i, y, 1, h, '#8A6A3A');
+  rect(c, x + 6, y + 1, w - 12, 1, '#F8E8A8');
+}
+
+// A wide flat granite slab with lichen.
+export function stone(c, x, y, w, h, rng) {
+  rrect(c, x + 3, y + 5, w, h, 8, 'rgba(20,10,10,0.3)');
+  rrect(c, x - 1, y - 1, w + 2, h + 4, 9, '#6A6458');
+  rrect(c, x, y, w, h, 8, '#A49C8A');
+  for (let i = 0; i < w * h / 20; i++) rect(c, x + 3 + rng() * (w - 6), y + 3 + rng() * (h - 6), 1, 1, rng.pick(['#948C7A', '#B4AC9A', '#8A8272']));
+  for (let i = 0; i < 9; i++) { const lx = x + 6 + rng() * (w - 12), ly = y + 4 + rng() * (h - 8); oval(c, lx, ly, rng.int(2, 4), rng.int(1, 2), rng.pick(['#C8C070', '#A8B860', '#E0D890'])); }
+  let cx = x + w * 0.62, cy = y + 2;
+  for (let i = 0; i < h - 4; i++) { cx += rng.int(-1, 1); rect(c, cx, cy + i, 1, 1, '#6A6458'); }
+  rect(c, x + 8, y + 1, w * 0.4, 1, '#C8C0AE');
+}
+
+// A tea room tablecloth: white with a scalloped edge and a little pattern.
+export function cloth(c, x, y, w, h) {
+  rect(c, x + 3, y + 4, w, h, 'rgba(20,10,10,0.3)');
+  rect(c, x, y, w, h, '#FBF4E6');
+  rect(c, x + 4, y + 4, w - 8, 1, '#D88A9A'); rect(c, x + 4, y + h - 5, w - 8, 1, '#D88A9A');
+  rect(c, x + 4, y + 4, 1, h - 8, '#D88A9A'); rect(c, x + w - 5, y + 4, 1, h - 8, '#D88A9A');
+  for (let i = 8; i < w - 8; i += 12) for (let j = 10; j < h - 8; j += 12) { rect(c, x + i, y + j, 1, 1, '#E8C0C8'); rect(c, x + i + 6, y + j + 6, 1, 1, '#B8C8E0'); }
+  for (let i = 0; i < w; i += 4) { rect(c, x + i, y + h, 3, 1, '#FBF4E6'); rect(c, x + i + 1, y + h + 1, 1, 1, '#FBF4E6'); rect(c, x + i, y - 1, 3, 1, '#FBF4E6'); }
+}
+
+// Deckchair stripes.
+export function stripes(c, x, y, w, h) {
+  rect(c, x + 3, y + 3, w, h, 'rgba(20,10,10,0.3)');
+  const cols = ['#6A94B4', '#F5EBDA', '#D46E5E', '#F5EBDA'];
+  for (let i = 0; i < w; i += 10) rect(c, x + i, y, Math.min(10, w - i), h, cols[(i / 10) % cols.length]);
+  for (let j = 0; j < h; j += 2) for (let i = (j / 2) % 2; i < w; i += 5) rect(c, x + i, y + j, 1, 1, 'rgba(255,255,255,0.1)');
+  for (let i = 0; i < w; i += 3) { rect(c, x + i, y - 2, 1, 2, '#F5EBDA'); rect(c, x + i + 1, y + h, 1, 2, '#F5EBDA'); }
+}
+
+// Small things set down in the empty corner beside you.
+export function prop(c, kind, x, y, rng) {
+  const S = 'rgba(20,10,10,0.25)';
+  if (kind === 'basket' || kind === 'crate') {
+    rect(c, x - 1, y + 13, 18, 2, S);
+    rect(c, x, y + 1, 16, 12, '#B07A3E'); for (let i = 0; i < 16; i += 3) rect(c, x + i, y + 1, 1, 12, '#8A5A2A');
+    rect(c, x, y + 1, 16, 1, '#8A5A2A');
+    if (kind === 'crate') { for (let i = 0; i < 7; i++) rect(c, x + 1 + i * 2, y - 1 - (i % 2), 2, 2, rng.pick(['#D0302A', '#E8483A', '#F2B63C'])); }
+    else { rect(c, x + 2, y - 5, 12, 2, '#8A5A2A'); rect(c, x + 2, y - 5, 2, 6, '#8A5A2A'); rect(c, x + 12, y - 5, 2, 6, '#8A5A2A'); }
+    rect(c, x - 9, y + 8, 4, 4, '#D0302A'); rect(c, x - 8, y + 7, 1, 1, '#4E8A3A'); rect(c, x - 5, y + 10, 4, 4, '#C8402F');
+  } else if (kind === 'teapot') {
+    rect(c, x, y + 12, 16, 2, S);
+    oval(c, x + 8, y + 7, 6, 5, '#F5EBDA'); oval(c, x + 8, y + 7, 6, 1, '#D88A9A'); rect(c, x + 6, y + 1, 4, 1, '#F5EBDA'); rect(c, x + 7, y, 2, 1, '#D88A9A');
+    rect(c, x + 14, y + 5, 3, 1, '#F5EBDA'); rect(c, x + 16, y + 3, 1, 2, '#F5EBDA'); rect(c, x, y + 5, 2, 4, '#F5EBDA');
+    for (const cx of [x - 8, x + 20]) { rect(c, cx, y + 9, 6, 1, '#E8DCC4'); rect(c, cx + 1, y + 6, 4, 3, '#F5EBDA'); rect(c, cx + 2, y + 6, 2, 1, '#8A5A34'); }
+  } else if (kind === 'churn') {
+    rect(c, x + 1, y + 13, 12, 2, S);
+    rect(c, x + 2, y + 2, 10, 11, '#C8C8C8'); rect(c, x + 2, y + 5, 10, 1, '#9A9A9A'); rect(c, x + 4, y - 1, 6, 3, '#B0B0B0'); rect(c, x + 3, y - 2, 8, 1, '#9A9A9A'); rect(c, x + 3, y + 3, 2, 8, '#E8E8E8');
+    rect(c, x - 8, y + 8, 6, 5, '#E8C86A'); rect(c, x - 8, y + 10, 6, 1, '#C8A04A');
+  } else if (kind === 'flask') {
+    rect(c, x + 2, y + 13, 8, 2, S);
+    rect(c, x + 3, y, 6, 13, '#3E6A4E'); rect(c, x + 3, y - 2, 6, 2, '#C8C0B0'); rect(c, x + 4, y + 1, 1, 11, '#5E8A6A');
+    rect(c, x - 6, y + 8, 6, 4, '#C8C0B0'); rect(c, x - 5, y + 8, 4, 1, '#8A5A34');
+  } else if (kind === 'bucket') {
+    rect(c, x + 1, y + 13, 14, 2, S);
+    rect(c, x + 2, y + 3, 11, 10, '#8A9AA8'); rect(c, x + 2, y + 3, 11, 2, '#2E5A7A'); rect(c, x + 3, y + 6, 2, 6, '#B0BEC8');
+    rect(c, x + 1, y - 2, 13, 1, '#5A6A78'); rect(c, x + 1, y - 2, 1, 5, '#5A6A78'); rect(c, x + 13, y - 2, 1, 5, '#5A6A78');
+    rect(c, x - 10, y + 10, 9, 1, '#C89A64'); rect(c, x - 2, y + 9, 1, 1, '#C8402F');
+  } else if (kind === 'posy') {
+    rect(c, x + 2, y + 13, 10, 2, S);
+    rect(c, x + 4, y + 6, 6, 7, '#8A9AA8'); rect(c, x + 4, y + 6, 6, 1, '#B0BEC8');
+    for (let i = 0; i < 9; i++) rect(c, x + 2 + rng.range(0, 9), y - 2 + rng.range(0, 7), 2, 2, rng.pick(['#F2A0B8', '#FFF4DC', '#B8A0E8', '#FFD45E']));
+    rect(c, x + 6, y + 3, 1, 3, '#4E8A3A');
+  } else if (kind === 'flags') {
+    for (const [dx, col] of [[2, '#C8402F'], [9, '#3E7AA0']]) { rect(c, x + dx, y - 4, 1, 17, '#6B3E26'); rect(c, x + dx + 1, y - 4, 5, 3, col); rect(c, x + dx + 1, y - 1, 3, 1, col); }
+    rect(c, x, y + 13, 14, 2, S);
+  } else if (kind === 'cups') {
+    for (const cx of [x, x + 9]) { rect(c, cx, y + 13, 7, 1, S); rect(c, cx, y + 4, 6, 9, '#F5EBDA'); rect(c, cx, y + 7, 6, 3, '#8A5A34'); rect(c, cx - 1, y + 3, 8, 1, '#3E3E4E'); }
+    rect(c, x - 9, y + 5, 7, 8, '#C8A87A'); rect(c, x - 9, y + 5, 7, 1, '#A8885A');
+  } else if (kind === 'mushrooms') {
+    for (let i = 0; i < 3; i++) { const mx = x + i * 5, my = y + 8 + (i % 2) * 2; rect(c, mx, my + 1, 1, 3, '#F5EBDA'); rect(c, mx - 2, my, 5, 2, '#D0302A'); rect(c, mx - 1, my, 1, 1, '#FFFFFF'); }
+  }
 }
 
 export function drawRestStop(c, opts) {

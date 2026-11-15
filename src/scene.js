@@ -6,7 +6,9 @@
 import { rect, oval } from './pixel.js';
 import * as A from './art.js';
 import { makeLeaves } from './weather.js';
-import { gingham, stumpTable, seated, lantern } from './reststop.js';
+import { gingham, stumpTable, planks, straw, stone, cloth, stripes, prop, seated, lantern } from './reststop.js';
+import { BIOMES } from './biomes.js';
+import { makeRng } from './pixel.js';
 import { sfx } from './sound.js';
 
 const LINES = {
@@ -22,7 +24,7 @@ export function createScene({ canvas, hud }) {
     <div class="lane-tag" data-tag="c" hidden>Winnie</div>
     <div class="lantern-tag you" data-lt="p" hidden></div>
     <div class="lantern-tag" data-lt="c" hidden></div>
-    <div class="lane-banner" hidden><span class="small"></span><span class="big"></span></div>
+    <div class="lane-banner" hidden><span class="small"></span><span class="big"></span><span class="line"></span></div>
     <div class="lane-bubble" hidden></div>
     <div class="speech" hidden></div>`;
   const $ = (s) => hud.querySelector(s);
@@ -33,7 +35,7 @@ export function createScene({ canvas, hud }) {
   let lane = null, scale = 4, aw = 0, ah = 0, camX = 0, camY = 0, last = 0, L = null;
   let mode = 'stop', surfaceAlpha = 1, stop = { from: { p: 0, c: 0 }, hole: 0, biome: 'meadow' }, banked = { p: 0, c: 0 };
   let pos = { p: 0, c: 0 }, target = { p: 0, c: 0 }, stepAt = { p: 0, c: 0 }, walkDone = null;
-  let deer = null, seenForest = false, bannerTimer = 0, speechTimer = 0, leaves = null;
+  let surf = { key: '', cv: null }, deer = null, seenForest = false, visited = new Set(['meadow']), bannerTimer = 0, speechTimer = 0, leaves = null;
 
   // ---- layout: where the lane, the surface, the hand and the action bar go on this screen.
   // u is the UI scale (1 at 1440x900); card widths are worked out here so the
@@ -101,8 +103,9 @@ export function createScene({ canvas, hud }) {
     el.style.left = `${cx}px`; el.style.top = `${cy}px`;
   }
 
-  function showBanner(small, big, ms = 2200) {
+  function showBanner(small, big, line = '', ms = line ? 3000 : 2200) {
     banner.querySelector('.small').textContent = small; banner.querySelector('.big').textContent = big;
+    const ln = banner.querySelector('.line'); ln.textContent = line; ln.hidden = !line;
     banner.hidden = false; banner.classList.remove('show'); void banner.offsetWidth; banner.classList.add('show');
     clearTimeout(bannerTimer); bannerTimer = setTimeout(() => { banner.hidden = true; }, ms);
   }
@@ -118,7 +121,8 @@ export function createScene({ canvas, hud }) {
     const holes = lane.holes;
     if (h > 0 && holes[h].biome !== holes[h - 1].biome) {
       const b = holes[h].biome;
-      showBanner(who === 'p' ? 'You are entering' : 'Winnie is entering', b === 'forest' ? 'The forest' : 'The meadow');
+      const B = BIOMES[b], first = !visited.has(b); visited.add(b);
+      showBanner(who === 'p' ? 'You are entering' : 'Winnie is entering', B.title, first ? B.line : '');
       if (b === 'forest' && !seenForest) {
         seenForest = true;
         const k = Math.min(121, h + 3), a = holes[Math.max(0, k - 1)], bb = holes[Math.min(121, k + 1)];
@@ -128,23 +132,29 @@ export function createScene({ canvas, hud }) {
         sfx('chime');
       }
     }
-    if (h === 121) { showBanner(who === 'p' ? 'You made it' : 'Winnie made it', 'Home!', 6000); sfx('win'); }
+    if (h === 121) { showBanner(who === 'p' ? 'You made it' : 'Winnie made it', 'Home!', '', 6000); sfx('win'); }
   }
 
   function drawSurface(biome) {
     const s = L.surface, x = Math.round(s.x / scale), y = Math.round(s.y / scale), w = Math.round(s.w / scale), h = Math.round(s.h / scale);
-    if (biome === 'forest') {
-      stumpTable(c, x, y, w, h);
-    } else {
-      gingham(c, x, y, w, h);
-      // a basket and two apples in the empty corner beside you
-      const bx = Math.round(x + w * 0.9 - 8), by = y + 6;
-      rect(c, bx - 1, by + 13, 18, 2, 'rgba(20,10,10,0.25)');
-      rect(c, bx, by + 1, 16, 12, '#B07A3E'); for (let i = 0; i < 16; i += 3) rect(c, bx + i, by + 1, 1, 12, '#8A5A2A');
-      rect(c, bx, by + 1, 16, 1, '#8A5A2A');
-      rect(c, bx + 2, by - 5, 12, 2, '#8A5A2A'); rect(c, bx + 2, by - 5, 2, 6, '#8A5A2A'); rect(c, bx + 12, by - 5, 2, 6, '#8A5A2A');
-      rect(c, bx - 9, by + 8, 4, 4, '#D0302A'); rect(c, bx - 8, by + 7, 1, 1, '#4E8A3A'); rect(c, bx - 5, by + 10, 4, 4, '#C8402F');
+    const key = [biome, x, y, w, h, aw, ah, stop.hole].join('|');
+    if (surf.key !== key) {
+      surf.key = key; surf.cv = document.createElement('canvas'); surf.cv.width = aw; surf.cv.height = ah;
+      paintSurface(surf.cv.getContext('2d'), biome, x, y, w, h);
     }
+    c.drawImage(surf.cv, 0, 0);
+  }
+  function paintSurface(c, biome, x, y, w, h) {
+    const B = BIOMES[biome] || BIOMES.meadow, rng = makeRng(stop.hole * 7 + 3);
+    if (B.surface === 'slab') stumpTable(c, x, y, w, h);
+    else if (B.surface === 'planks') planks(c, x, y, w, h);
+    else if (B.surface === 'straw') straw(c, x, y, w, h, rng);
+    else if (B.surface === 'stone') stone(c, x, y, w, h, rng);
+    else if (B.surface === 'cloth') cloth(c, x, y, w, h);
+    else if (B.surface === 'stripes') stripes(c, x, y, w, h);
+    else gingham(c, x, y, w, h, B.rug);
+    // something set down in the empty corner beside you
+    prop(c, B.prop, Math.round(Math.min(x + w * 0.9 - 8, x + w - 32)), y + 6, rng);
     for (const st of L.seats) seated(c, st.who, st.x / scale, st.y / scale);
   }
 
@@ -248,7 +258,7 @@ export function createScene({ canvas, hud }) {
     layout: () => L,
     relayout: layout,
     reset(newLane) {
-      lane = newLane; deer = null; seenForest = false; bubble.hidden = true; banner.hidden = true; speech.hidden = true;
+      lane = newLane; deer = null; seenForest = false; visited = new Set(['meadow']); bubble.hidden = true; banner.hidden = true; speech.hidden = true;
       pos = { p: 0, c: 0 }; target = { p: 0, c: 0 };
       this.setStop({ p: 0, c: 0 });
       const [x, y] = holeXY(0); camX = Math.max(0, x - L.free.w / 2 / scale); camY = Math.max(0, y - L.free.h / 2 / scale);

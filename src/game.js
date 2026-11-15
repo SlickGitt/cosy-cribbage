@@ -236,6 +236,6 @@ for(const [id,fn,key] of [['musicBtn',setMusic,'music'],['soundBtn',setSound,'so
  const b=document.getElementById(id);
  b.addEventListener('click',()=>{initAudio();const on=!settings[key];fn(on);b.setAttribute('aria-pressed',on);b.classList.toggle('off',!on);});
 }
-window.__cc={get S(){return S},get lane(){return lane},nextShow,confirmDiscard,play,sayGo,addPts};
+window.__cc={scene,get S(){return S},get lane(){return lane},nextShow,confirmDiscard,play,sayGo,addPts};
 placeUI();
 newGame();

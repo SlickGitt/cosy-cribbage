@@ -2,30 +2,30 @@
 // pre-rendered to a tall pixel canvas.
 import { makeRng, rect, disc, oval, number } from './pixel.js';
 import * as A from './art.js';
+import * as S from './scenery.js';
+import { BIOMES, MIDDLE } from './biomes.js';
 
+export { BIOMES };
 export const W = 720;            // world width in art pixels; the lane winds through the middle
 const SPACING = 13;              // distance between holes along the lane
 
-export const BIOMES = {
-  meadow: { name: 'the meadow', ground: '#8FB04A', patches: ['#9CBC54', '#82A040', '#A8C860'], path: ['#7A5634', '#C49464', '#D6A874'], specks: ['#A07A50', '#E8C08A'] },
-  forest: { name: 'the forest', ground: '#55702E', patches: ['#4A6428', '#607C36', '#3E5822'], path: ['#4A3420', '#8A6440', '#9E7650'], specks: ['#6B4A2E', '#C8402F', '#E8862E'] },
-};
-
+// Start in the meadow, finish on the village green, and walk through a shuffled
+// run of the other biomes in between (stretches of 10 to 17 holes).
 function planBiomes(rng) {
-  // Stretches of 8 to 20 holes, alternating, starting and ending in the meadow.
+  const order = MIDDLE.slice();
+  for (let i = order.length - 1; i > 0; i--) { const j = rng.int(0, i); [order[i], order[j]] = [order[j], order[i]]; }
   const segs = [];
-  let h = 0, b = 'meadow';
-  while (h <= 121) {
-    const len = rng.int(10, 20);
-    const end = Math.min(121, h + len - 1);
-    segs.push({ biome: b, from: h, to: end });
-    h = end + 1;
-    b = b === 'meadow' ? 'forest' : 'meadow';
+  let h = rng.int(9, 13);
+  segs.push({ biome: 'meadow', from: 0, to: h - 1 });
+  const greenFrom = 121 - rng.int(9, 12);
+  for (let k = 0; h < greenFrom; k++) {
+    let len = rng.int(10, 17);
+    if (greenFrom - (h + len) < 8) len = greenFrom - h;
+    segs.push({ biome: order[k % order.length], from: h, to: h + len - 1 });
+    h += len;
   }
-  const last = segs[segs.length - 1];
-  if (last.biome !== 'meadow') { last.to = Math.max(last.from, 112); segs.push({ biome: 'meadow', from: last.to + 1, to: 121 }); }
-  if (last.to - last.from < 5 && segs.length > 1) { segs[segs.length - 2].to = 121; segs.pop(); }
-  return segs.filter((s) => s.from <= s.to);
+  segs.push({ biome: 'green', from: greenFrom, to: 121 });
+  return segs;
 }
 
 function buildPath(rng) {
@@ -105,41 +105,70 @@ export function generateLane(seed) {
   const home = holes[121];
   const blockers = [...signs.map(([x, y]) => [x, y - 8, 22]), [holes[0].x, holes[0].y, 50], [home.x, home.y + 14, 44]];
   const blocked = (x, y) => blockers.some(([bx, by, r]) => Math.hypot(bx - x, by - y) < r);
+  const laneAt = (y) => { let best = samples[0], bd = 1e9; for (const s of samples) { const d = Math.abs(s[1] - y); if (d < bd) { bd = d; best = s; } } return best[0]; };
+  const laneDist = (x, y) => { let d = 1e9; for (const s of samples) { if (Math.abs(s[1] - y) > 80) continue; d = Math.min(d, Math.hypot(s[0] - x, s[1] - y)); } return d; };
 
-  // Small ground detail per biome.
-  const items = [];
+  // Standing things are queued and drawn after the lane, sorted by y.
+  const items = [], afterPath = [], occ = [];
   const add = (y, fn) => items.push([y, fn]);
-  const place = (seg, n, pad, minD, fn) => {
-    const [t, b] = band(seg); const pts = [];
-    for (let tries = 0; pts.length < n && tries < n * 60; tries++) {
-      const x = rng.range(-6, W + 6), y = rng.range(t + 4, b - 2);
-      if (near(x, y, pad) || blocked(x, y) || pts.some((p) => Math.hypot(p[0] - x, p[1] - y) < minD)) continue;
-      pts.push([x, y]); add(y, () => fn(x, y));
-    }
-  };
+  const hits = (r) => occ.some((o) => r.x < o.x + o.w && r.x + r.w > o.x && r.y < o.y + o.h && r.y + r.h > o.y);
   for (const seg of segs) {
-    const [t, b] = band(seg), area = (b - t) * W / 10000;
-    if (seg.biome === 'meadow') {
-      for (let i = 0; i < area * 60; i++) rect(c, rng.range(0, W), rng.range(t, b), 1, 2, rng.pick(['#B8D070', '#7E9A3E']));
-      place(seg, area * 9, 14, 8, (x, y) => A.flowers(c, x, y, rng));
-      place(seg, area * 1.6, 30, 34, (x, y) => A.tree(c, x, y, rng.pick(['gold', 'orange', 'lime', 'green']), rng.range(1.0, 1.3), rng));
-      place(seg, area * 2, 20, 18, (x, y) => A.bush(c, x, y, rng.pick(['green', 'lime']), rng, rng.pick([null, '#F2A0B8', '#FFD45E'])));
-      place(seg, area * 1.6, 22, 16, (x, y) => A.sheep(c, x, y, rng() < 0.5));
-      place(seg, area * 0.8, 26, 24, (x, y) => A.cow(c, x, y, rng() < 0.5, rng() < 0.4));
-      place(seg, area * 0.5, 26, 30, (x, y) => A.hay(c, x, y));
-      place(seg, area * 0.8, 16, 14, (x, y) => A.rock(c, x, y));
-      place(seg, area * 0.4, 24, 40, (x, y) => A.fence(c, x, y, rng.int(3, 6)));
-      place(seg, area * 0.6, 14, 30, (x, y) => A.bird(c, x, y));
-    } else {
-      for (let i = 0; i < area * 160; i++) rect(c, rng.range(0, W), rng.range(t, b), 2, 1, rng.pick(['#E8862E', '#C8402F', '#F2B63C', '#8E5A2E']));
-      place(seg, area * 4, 16, 10, (x, y) => A.fern(c, x, y));
-      place(seg, area * 1.2, 18, 20, (x, y) => rng.pick([A.log, A.stump, A.rock])(c, x, y));
-      place(seg, area * 1, 16, 20, (x, y) => A.mushrooms(c, x, y, rng));
-      place(seg, area * 2, 18, 14, (x, y) => A.bush(c, x, y, rng.pick(['green', 'red', 'orange']), rng, rng.pick([null, '#D0302A', '#7A3E8E'])));
-      place(seg, area * 0.8, 14, 40, (x, y) => A.squirrel(c, x, y, rng() < 0.5));
-      place(seg, area * 9, 26, 15, (x, y) => (rng() < 0.35 ? A.pine(c, x, y, rng.range(0.9, 1.25), rng, rng() < 0.12)
-        : A.tree(c, x, y, rng.pick(['orange', 'red', 'green', 'gold', 'plum', 'orange', 'lime']), rng.range(0.9, 1.25), rng)));
-    }
+    const B = BIOMES[seg.biome], [t, b] = band(seg);
+    const ctx = { c, rng, W, t, b, seg, area: (b - t) * W / 10000, add, laneAt, samples,
+      after: (fn) => afterPath.push(fn), holeYs: holes.slice(seg.from, seg.to + 1).map((h) => h.y), water: null };
+    // Is this footprint (w x h, standing on x, y) clear of the lane, signs, water and other things?
+    ctx.spot = (x, y, pad, fp = [4, 4], maxD = Infinity) => {
+      const r = { x: x - fp[0] / 2, y: y - fp[1], w: fp[0], h: fp[1] };
+      if (y < t + 2 || y > b - 1 || blocked(x, y) || hits(r)) return false;
+      const pts = [[x, y], [r.x, y], [r.x + r.w, y], [r.x, r.y], [r.x + r.w, r.y], [x, r.y + r.h / 2]];
+      if (pts.some(([px, py]) => near(px, py, px === x && py === y ? pad : Math.min(pad, 12)))) return false;
+      if (ctx.water && pts.some(([px, py]) => ctx.water(px, py))) return false;
+      if (maxD !== Infinity && laneDist(x, y) > pad + maxD) return false;
+      if (fp[0] > 6 || fp[1] > 6) occ.push(r);
+      return true;
+    };
+    ctx.place = (n, pad, minD, fn, fp, maxD) => {
+      const got = [];
+      for (let tries = 0; got.length < n && tries < n * 60; tries++) {
+        const x = maxD ? laneAt(rng.range(t, b)) + rng.pick([-1, 1]) * rng.range(pad, pad + maxD) : rng.range(-6, W + 6);
+        const y = maxD ? rng.range(t + 4, b - 2) : rng.range(t + 4, b - 2);
+        if (got.some((p) => Math.hypot(p[0] - x, p[1] - y) < minD) || !ctx.spot(x, y, pad, fp, maxD)) continue;
+        got.push([x, y]); add(y, () => fn(x, y));
+      }
+    };
+    ctx.spotNearLane = (pad, maxD, fp) => {
+      for (let tries = 0; tries < 200; tries++) {
+        const y = rng.range(t + fp[1], b - 4), x = laneAt(y) + rng.pick([-1, 1]) * rng.range(pad, pad + maxD);
+        if (x > 20 && x < W - 20 && ctx.spot(x, y, pad, fp, maxD)) return [x, y];
+      }
+      return null;
+    };
+    // Ground-level patches, drawn now so the lane is laid over them.
+    ctx.field = (w, h, kind) => {
+      for (let tries = 0; tries < 60; tries++) {
+        const x = rng.range(-10, W - w + 10), y = rng.range(t + 4, b - h - 4);
+        const r = { x: x - 2, y: y - 2, w: w + 4, h: h + 4 };
+        let ok = !hits(r);
+        for (let i = 0; ok && i <= w; i += 8) for (let j = 0; ok && j <= h; j += 8) if (near(x + i, y + j, 12) || blocked(x + i, y + j)) ok = false;
+        if (!ok) continue;
+        occ.push(r); S.field(c, Math.round(x), Math.round(y), w, h, kind, rng); return true;
+      }
+      return false;
+    };
+    ctx.pondAt = (rx, ry, maxD) => {
+      for (let tries = 0; tries < 120; tries++) {
+        const y = rng.range(t + ry + 6, b - ry - 6);
+        const x = maxD ? laneAt(y) + rng.pick([-1, 1]) * rng.range(rx + 18, rx + 18 + maxD) : rng.range(rx + 10, W - rx - 10);
+        const r = { x: x - rx - 4, y: y - ry - 4, w: rx * 2 + 8, h: ry * 2 + 8 };
+        if (hits(r) || [[0, 0], [-rx, 0], [rx, 0], [0, -ry], [0, ry]].some(([dx, dy]) => near(x + dx, y + dy, 14) || blocked(x + dx, y + dy))) continue;
+        occ.push(r); S.pond(c, x, y, rx, ry, rng);
+        add(y - ry, () => { S.reeds(c, x - rx + 3, y - ry + 2, rng); S.reeds(c, x + rx - 6, y + ry - 1, rng); });
+        for (let i = 0; i < 3; i++) { const dx = rng.range(-rx + 6, rx - 6), dy = rng.range(-ry + 3, ry - 3); add(y + dy, () => S.duck(c, x + dx, y + dy, rng() < 0.5, i === 0)); }
+        return true;
+      }
+      return false;
+    };
+    B.decorate(ctx);
   }
 
   // The lane itself, coloured per biome, then peg holes.
@@ -158,6 +187,7 @@ export function generateLane(seed) {
     const s = samples[Math.floor(rng() * samples.length)];
     rect(c, s[0] + rng.range(-6, 6), s[1] + rng.range(-6, 6), 1, 1, rng.pick(pathColours(s[1]).specks));
   }
+  afterPath.forEach((fn) => fn());
   holes.forEach((h, i) => {
     if (i === 0) return;
     const big = i % 5 === 0;
