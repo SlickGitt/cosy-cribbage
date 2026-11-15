@@ -3,7 +3,7 @@
 import { makeRng, rect, disc, oval, number } from './pixel.js';
 import * as A from './art.js';
 
-export const W = 384;            // world width in art pixels (matches the walk view)
+export const W = 720;            // world width in art pixels; the lane winds through the middle
 const SPACING = 13;              // distance between holes along the lane
 
 export const BIOMES = {
@@ -36,7 +36,7 @@ function buildPath(rng) {
   while (y < 1800) {
     pts.push([x, y]);
     y += rng.range(70, 100);
-    x = Math.max(120, Math.min(W - 120, x + rng.range(-90, 90)));
+    x = Math.max(W / 2 - 120, Math.min(W / 2 + 120, x + rng.range(-90, 90)));
   }
   const samples = [];
   for (let i = 0; i < pts.length - 1; i++) {

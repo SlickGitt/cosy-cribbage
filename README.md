@@ -5,8 +5,8 @@ A cosy, 16-bit style online cribbage game. Play against Winnie (the computer) or
 ## Status
 Vertical slice:
 - Full cribbage rules against Winnie, the computer
-- Table view: a pixel room with a window onto the lane, scores on the chalkboard
-- Walk view after each round: both walkers walk their points along a generated lane
+- Full-screen layout with no scrolling: the lane fills the screen and the card table sits in a tray over it (right side on desktop, bottom on phones)
+- Walkers step along the lane live, the moment points are scored
 - Lane generator: one seed makes a new lane each game, with meadow and forest stretches
 - One moment (a deer when you first enter the forest), falling leaves, synthesised sound and a lofi loop
 
@@ -27,7 +27,7 @@ then open http://localhost:8000.
 - `src/pixel.js` seeded random numbers and pixel drawing helpers
 - `src/art.js` code-drawn scenery, animals and walker sprites
 - `src/lane.js` lane generator and biome rendering
-- `src/scenes.js` the room above the table and the walk view
+- `src/laneview.js` the live lane behind the card tray
 - `src/weather.js` falling leaves
 - `src/sound.js` synthesised effects and music
 

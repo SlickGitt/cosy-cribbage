@@ -3,26 +3,38 @@ import { SUITS, RL, RN, NAME, val, other, byRank, cardName, short, fullDeck, shu
 import { scoreHand, pegScore } from './scoring.js';
 import { compDiscard, compPeg } from './ai.js';
 import { generateLane } from './lane.js';
-import { createRoom, createWalk } from './scenes.js';
+import { createLaneView } from './laneview.js';
 import { initAudio, sfx, setMusic, setSound, settings } from './sound.js';
 
-const room = createRoom(document.getElementById('room'));
-const walk = createWalk(document.getElementById('walk'));
+const tray = document.getElementById('tray');
+function freeRect() {
+  const t = tray.getBoundingClientRect(), W = window.innerWidth, H = window.innerHeight;
+  return t.left > W * 0.3 ? { x: 0, y: 0, w: t.left, h: H } : { x: 0, y: 0, w: W, h: Math.max(80, t.top) };
+}
+const laneView = createLaneView({ canvas: document.getElementById('lane'), hud: document.getElementById('laneHud'), freeRect });
 let lane = null;
+
+// Size the cards so the whole tray fits the screen without scrolling.
+function fitCards() {
+  const T = document.getElementById('table'), r = T.getBoundingClientRect();
+  const byH = (r.height - 200) / 3.9, byW = (r.width - 70) / 6.1;
+  const cw = Math.max(40, Math.min(124, byH, byW));
+  tray.style.setProperty('--cw', cw.toFixed(1) + 'px');
+  laneView.relayout();
+}
+window.addEventListener('resize', fitCards);
 
 let S, gen = 0;
 const later = (fn, ms) => { const g = gen; setTimeout(() => { if (g === gen) fn(); }, ms); };
 
 function log(t){S.log.unshift(t);S.log=S.log.slice(0,9);}
-let tick=null;
 function addPts(who,pts,reason){
  if(!pts)return false;
  S.score[who]=Math.min(121,S.score[who]+pts);
  log(`${NAME[who]}: ${reason} for ${pts}`);
  sfx('score',pts);
- startTick();syncRoom();
- if(S.score[who]>=121){S.phase='over';S.winner=who;log(`${NAME[who]} ${who==='p'?'reach':'reaches'} home at 121`);render();
-  later(()=>openWalk(`${S.winner==='p'?'You win':'Winnie wins'}, ${S.score.p} to ${S.score.c}`,'See the final table'),1400);return true;}
+ laneView.moveTo(who,S.score[who]);
+ if(S.score[who]>=121){S.phase='over';S.winner=who;log(`${NAME[who]} ${who==='p'?'reach':'reaches'} home at 121`);render();return true;}
  return false;
 }
 function pop(text,sel,who,delay=0){
@@ -36,12 +48,7 @@ function pop(text,sel,who,delay=0){
   document.getElementById('fx').appendChild(d);setTimeout(()=>d.remove(),1700);
  });},delay);
 }
-function syncRoom(){const lead=S.score.p>=S.score.c?'p':'c';room.setState(lane.biomeAt(Math.max(1,S.score[lead])),S.score.p-S.score.c);}
-async function openWalk(summary,finalText){
- const g=gen,res=await walk.open(lane,S.from,{...S.score},summary,{seenForest:S.seenForest,finalText});
- if(g!==gen)return;S.seenForest=res.seenForest;S.from={...S.score};
-}
-function newGame(){gen++;const seed=Math.floor(Math.random()*9000)+1000;lane=generateLane(seed);document.getElementById('seed').textContent=`Lane ${seed}`;S={seed,seenForest:false,from:{p:0,c:0},score:{p:0,c:0},disp:{p:0,c:0},dealer:Math.random()<.5?'p':'c',log:[],round:0,phase:'',winner:null};buildTrack();syncRoom();log(`${NAME[S.dealer]} cut the lower card and ${S.dealer==='p'?'deal':'deals'} first`);startRound();}
+function newGame(){gen++;const seed=Math.floor(Math.random()*9000)+1000;lane=generateLane(seed);laneView.reset(lane);document.getElementById('seed').textContent=`Lane ${seed}`;S={seed,seenForest:false,from:{p:0,c:0},score:{p:0,c:0},disp:{p:0,c:0},dealer:Math.random()<.5?'p':'c',log:[],round:0,phase:'',winner:null};log(`${NAME[S.dealer]} cut the lower card and ${S.dealer==='p'?'deal':'deals'} first`);startRound();}
 function startRound(){
  S.round++;S.from={...S.score};const d=shuffled();
  S.deck=d;S.hand={p:d.splice(0,6).sort(byRank),c:d.splice(0,6).sort(byRank)};
@@ -106,10 +113,7 @@ function startShow(){
 function nextShow(){
  const sh=S.show;sh.step++;
  if(sh.step>2){
-  const gp=S.score.p-S.from.p,gc=S.score.c-S.from.c;
-  S.phase='walking';render();
-  openWalk(`Round ${S.round}: you scored ${gp}, Winnie scored ${gc}`).then(()=>{if(S.phase!=='walking')return;S.dealer=other(S.dealer);startRound();});
-  return;}
+  S.dealer=other(S.dealer);startRound();return;}
  const st=sh.steps[sh.step];st.res=scoreHand(st.cards,S.starter,st.crib);st.shown=0;st.run=0;st.done=false;
  render();
  if(!st.res.items.length){st.done=true;log(`${NAME[st.who]}: nothing in ${st.crib?'the crib':'hand'}`);later(render,300);return;}
@@ -138,14 +142,6 @@ function cardHTML(c,{btn=false,sel=false,dim=false,dis=false,hl=false,extra='',c
  return `<${tag} class="card${sel?' sel':''}${dim?' dim':''}${hl?' hl':''} ${cls}" style="color:${su.c};${extra}" ${attrs}><span class="rk"><b>${RL[c.r]}</b><svg viewBox="0 0 9 10" aria-hidden="true"><use href="#${su.id}"></use></svg></span><svg class="big" viewBox="0 0 9 10" aria-hidden="true"><use href="#${su.id}"></use></svg></${tag}>`;
 }
 const backHTML=(st='')=>`<div class="back" style="${st}" aria-hidden="true"><svg viewBox="0 0 9 10"><use href="#s-leaf"></use></svg></div>`;
-function buildTrack(){for(const w of ['p','c'])document.getElementById('num-'+w).textContent='0';}
-function startTick(){
- if(tick)return;
- tick=setInterval(()=>{let moving=false;
-  for(const w of ['p','c']){if(S.disp[w]<S.score[w]){S.disp[w]++;moving=true;const pc=S.disp[w]/121*100;
-   const n=document.getElementById('num-'+w);n.textContent=S.disp[w];n.classList.remove('flash');void n.offsetWidth;n.classList.add('flash');}}
-  if(!moving){clearInterval(tick);tick=null;}},110);
-}
 function render(){
  const T=document.getElementById('table'),P=S.peg,ph=S.phase;
  const cribName=S.dealer==='p'?'Your crib':"Winnie's crib";
@@ -158,7 +154,7 @@ function render(){
  else{const n=ph==='discard'?6:ph==='cut'?4:P?P.hand.c.length:4;oppCards=`<div class="fan">${Array.from({length:n},()=>backHTML()).join('')}</div>`;}
  let status='';
  if(ph==='discard')status='is choosing';else if(ph==='peg'&&P.turn==='c')status='is thinking';else if(ph==='peg'&&P.go.c)status='said Go';
- const top=`<div class="row"><span class="tag">${sst&&sst.crib&&sst.who==='c'?"Winnie's crib":'Winnie'} ${status?`<span style="font-weight:700;color:#5A4A44">${status}</span>`:''}</span>${oppCards}</div>`;
+ const top=`<div class="row opp"><span class="tag">${sst&&sst.crib&&sst.who==='c'?"Winnie's crib":'Winnie'} ${status?`<span style="font-weight:700;color:#5A4A44">${status}</span>`:''}</span>${oppCards}</div>`;
  const left=`<div class="stack"><span class="label">Starter</span><div id="starter">${S.starter?cardHTML(S.starter,{hl:hlIds.includes(S.starter.id)}):backHTML()}</div></div>`;
  let cribVis;
  if(ph==='show'&&S.show.step===2)cribVis=`<div class="crib">${[0,4,8,12].map(o=>backHTML(`position:absolute;left:${o}px;top:${o}px;opacity:.35`)).join('')}</div>`;
@@ -187,7 +183,6 @@ function render(){
  let prompt='';
  if(ph==='discard')prompt=`Choose 2 cards for ${S.dealer==='p'?'your':"Winnie's"} crib`;
  else if(ph==='cut')prompt='Turning the starter';
- else if(ph==='walking')prompt='Out on the lane...';
  else if(ph==='show')prompt=sst.crib?`Counting ${sst.who==='p'?'your':"Winnie's"} crib`:`Counting ${sst.who==='p'?'your':"Winnie's"} hand`;
  else if(ph==='peg'){if(P.turn==='p'){prompt=canPlay('p')?'Your turn: play a card':P.hand.p.length?(P.go.p?'Waiting for Winnie':"You can't play. Say Go"):'Out of cards';}else prompt="Winnie's turn";}
  let hand='';
@@ -199,8 +194,11 @@ function render(){
  if(ph==='discard')acts=`<button class="btn" data-act="discard" ${S.sel.length===2?'':'disabled'}>Send to crib${S.sel.length===2?'':` (${S.sel.length} of 2)`}</button>`;
  if(ph==='show')acts=sst.done?`<button class="btn" data-act="next">${S.show.step<2?'Next':'Next round'}</button>`:`<button class="btn ghost" data-act="skip">Skip</button>`;
  if(ph==='peg'&&P.turn==='p'&&!canPlay('p')&&P.hand.p.length&&!P.go.p)acts=`<button class="btn" data-act="go">Go</button>`;
- T.innerHTML=`${top}${mid}${prompt?`<div class="prompt">${prompt}</div>`:''}<div class="row"><span class="tag you">${sst&&sst.crib&&sst.who==='p'?'Your crib':'You'}</span></div><div class="hand">${hand}</div><div class="actions">${acts}</div>`;
- document.getElementById('log').innerHTML='<h2>What happened</h2>'+S.log.map(t=>`<p>${t}</p>`).join('');
+ const youTag=sst&&sst.crib&&sst.who==='p'?'Your crib':'You';
+ T.innerHTML=`${top}${mid}<div class="bar"><span class="tag you">${youTag}</span><span class="prompt">${prompt||'&nbsp;'}</span><div class="actions">${acts}</div></div><div class="hand">${hand}</div>`;
+ document.getElementById('roundInfo').textContent=`Round ${S.round} · ${S.dealer==='p'?'your':"Winnie's"} crib`;
+ document.getElementById('lastEvent').textContent=S.log[0]||'';
+ document.getElementById('log').innerHTML=S.log.map(t=>`<p>${t}</p>`).join('');
 }
 document.getElementById('table').addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b||b.disabled)return;
@@ -215,11 +213,16 @@ document.getElementById('table').addEventListener('click',e=>{
  else if(S.phase==='peg'&&S.peg.turn==='p'){const c=S.peg.hand.p.find(x=>x.id===id);if(c&&S.peg.count+val(c)<=31)play('p',c);}
 });
 document.getElementById('newGame').addEventListener('click',newGame);
+for(const [btn,dlg] of [['historyBtn','historyDlg'],['rulesBtn','rulesDlg']]){
+ document.getElementById(btn).addEventListener('click',()=>{const d=document.getElementById(dlg);d.hidden=!d.hidden;});
+}
+document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>{b.closest('.dialog').hidden=true;}));
 document.addEventListener('pointerdown',()=>initAudio(),{once:true});
 document.addEventListener('keydown',()=>initAudio(),{once:true});
 for(const [id,fn,key] of [['musicBtn',setMusic,'music'],['soundBtn',setSound,'sound']]){
  const b=document.getElementById(id);
- b.addEventListener('click',()=>{initAudio();const on=!settings[key];fn(on);b.setAttribute('aria-pressed',on);b.textContent=`${key==='music'?'Music':'Sound'}: ${on?'on':'off'}`;});
+ b.addEventListener('click',()=>{initAudio();const on=!settings[key];fn(on);b.setAttribute('aria-pressed',on);b.classList.toggle('off',!on);});
 }
-window.__cc={get S(){return S},get lane(){return lane},nextShow,confirmDiscard,play,sayGo,openWalk};
+window.__cc={get S(){return S},get lane(){return lane},nextShow,confirmDiscard,play,sayGo,addPts};
+fitCards();
 newGame();
