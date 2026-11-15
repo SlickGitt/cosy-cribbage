@@ -39,9 +39,10 @@ then open http://localhost:8000.
 - `src/unlocks.js` feats, ranks, field guide and rewards: what unlocks and how
 - `src/collection.js` the Collection screen and gear (card backs, blankets, lanterns)
 
-Style trial: only the meadow and forest are switched on (`ACTIVE` in `src/biomes.js`) while the new look is tested. Click sheep, cows, birds, rabbits, squirrels, butterflies, trees, bushes and mushrooms in the lane view.
+Style trial: the meadow, forest, river and village are switched on (`ACTIVE` in `src/biomes.js`) while the new look is tested. Click sheep, cows, birds, rabbits, squirrels, butterflies, trees, bushes and mushrooms in the lane view.
 - `src/scene.js` the full-screen scene: rest stop mode and walk mode
 - `src/reststop.js` rest stop surfaces, seated walkers and lanterns
+- `src/weathers.js` weather kinds and how they follow each other
 - `src/weather.js` falling leaves
 - `src/sound.js` synthesised effects and music
 

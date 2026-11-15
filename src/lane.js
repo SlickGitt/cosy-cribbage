@@ -14,12 +14,22 @@ const SPACING = 13;              // distance between holes along the lane
 // Start in the meadow, finish on the village green, and walk through a shuffled
 // run of the other biomes in between (stretches of 10 to 17 holes).
 function planBiomes(rng) {
-  if (ACTIVE.length < 4) {
-    // trial mode: alternate the active biomes, starting and ending in the meadow
-    const segs = []; let h = 0, k = 0;
-    while (h <= 121) { const len = rng.int(11, 18), b = ACTIVE[k++ % ACTIVE.length]; segs.push({ biome: b, from: h, to: Math.min(121, h + len - 1) }); h += len; }
-    const last = segs[segs.length - 1];
-    if (last.biome !== 'meadow') { last.to = Math.max(last.from, 110); segs.push({ biome: 'meadow', from: last.to + 1, to: 121 }); }
+  if (!MIDDLE.every((b) => ACTIVE.includes(b))) {
+    // while only some biomes are on: start in the meadow, wander through the
+    // others with no stretch repeated back to back, and come home through the village
+    const mids = ACTIVE.filter((b) => b !== 'village');
+    const segs = []; let h = 0, prev = null, rivers = 0;
+    const end = ACTIVE.includes('village') ? 121 - rng.int(11, 15) : 122;
+    const queue = mids.filter((b) => b !== 'meadow');
+    while (h < end) {
+      const weighted = (opts) => { const w = { meadow: 3, forest: 3, river: 1.2 }, list = opts.filter((x) => x !== prev && !(x === 'river' && rivers >= 2)); let r = rng() * list.reduce((a, x) => a + (w[x] || 1), 0); for (const x of list) { r -= w[x] || 1; if (r <= 0) return x; } return list[0]; };
+      let b = h === 0 ? 'meadow' : queue.length ? queue.splice(rng.int(0, queue.length - 1), 1)[0] : weighted(mids);
+      if (b === prev) b = weighted(mids);
+      if (b === 'river') rivers++;
+      let len = rng.int(11, 17); if (end - (h + len) < 8) len = end - h;
+      segs.push({ biome: b, from: h, to: Math.min(121, h + len - 1) }); h += len; prev = b;
+    }
+    if (end <= 121) segs.push({ biome: 'village', from: end, to: 121 });
     return segs.filter((s) => s.from <= s.to);
   }
   const order = MIDDLE.slice();

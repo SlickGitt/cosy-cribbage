@@ -12,10 +12,12 @@ export function makeLeaves(w, h, count, seed = 7) {
   };
   const ps = Array.from({ length: count }, () => spawn({}, false));
   return {
+    wind: 0,
     update(dt) {
+      const gustX = this.wind * 55, fall = 1 + this.wind * 0.5;
       for (const p of ps) {
-        p.ph += dt * 3; p.y += p.vy * dt; p.x += (p.vx + Math.sin(p.ph) * 10) * dt;
-        if (p.y > h + 4 || p.x > w + 12) spawn(p, true);
+        p.ph += dt * (3 + this.wind * 4); p.y += p.vy * dt * fall; p.x += (p.vx + gustX + Math.sin(p.ph) * 10) * dt;
+        if (p.y > h + 4 || p.x > w + 12) { spawn(p, true); if (this.wind > 0.5 && Math.random() < 0.6) { p.x = -8; p.y = Math.random() * h; } }
       }
     },
     draw(c, ox = 0, oy = 0) {

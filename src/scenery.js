@@ -349,3 +349,18 @@ export function planter(c, x, y, rng) {
   rect(c, x - 4, y - 3, 8, 4, '#6B3E26'); rect(c, x - 4, y - 3, 8, 1, '#8A5A34');
   for (let i = 0; i < 6; i++) rect(c, x - 4 + rng.range(0, 7), y - 6 + rng.range(0, 3), 1, 1, rng.pick(['#E8603A', '#F2A0B8', '#FFD45E', '#5E9A52']));
 }
+
+// The village pub: whitewashed, black beams, thatch, and a hanging sign with a plough on it.
+export function pub(c, x, y, rng) {
+  const { X, Y, w } = house(c, x, y, rng, { w: 40, wall: '#F2ECDE', roof: ['#C49A5A', 'thatch'], lit: true });
+  for (const bx of [X + 1, X + 13, X + 26, X + w - 2]) rect(c, bx, Y + 11, 1, 13, '#2E2420');
+  rect(c, X, Y + 17, w, 1, '#2E2420');
+  // bracket and sign
+  rect(c, X + w + 1, Y + 6, 1, 20, '#2E2420'); rect(c, X + w - 2, Y + 7, 10, 1, '#2E2420');
+  rect(c, X + w + 2, Y + 8, 1, 2, '#8A8272'); rect(c, X + w + 7, Y + 8, 1, 2, '#8A8272');
+  rect(c, X + w + 1, Y + 10, 8, 9, '#2E4A3A'); rect(c, X + w + 1, Y + 10, 8, 1, '#C8A24A'); rect(c, X + w + 1, Y + 18, 8, 1, '#C8A24A');
+  rect(c, X + w + 3, Y + 13, 4, 1, '#C8A24A'); rect(c, X + w + 2, Y + 14, 1, 2, '#C8A24A'); rect(c, X + w + 6, Y + 12, 1, 3, '#C8A24A');
+  // a bench and a barrel outside
+  rect(c, X + 3, Y + 28, 10, 2, '#7A4E32'); rect(c, X + 3, Y + 30, 1, 2, '#2B1D24'); rect(c, X + 12, Y + 30, 1, 2, '#2B1D24');
+  rect(c, X + w - 8, Y + 26, 5, 6, '#8A5A34'); rect(c, X + w - 8, Y + 27, 5, 1, '#5A5A5A'); rect(c, X + w - 8, Y + 30, 5, 1, '#5A5A5A');
+}

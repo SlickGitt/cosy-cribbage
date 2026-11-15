@@ -67,6 +67,23 @@ export function sfx(name, n = 1) {
     [0, 1.3, 2.6].forEach((d) => [[220, 0.035], [440, 0.02], [528, 0.014], [880, 0.008]].forEach(([fq, v]) => {
       const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = fq;
       g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(v, t + d + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 2.2); o.connect(g); g.connect(sfxBus); o.start(t + d); o.stop(t + d + 2.3); }));
+  } else if (name === 'thunder') {
+    const s = ctx.createBufferSource(); s.buffer = noiseBuffer(3.2);
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(900, t); f.frequency.exponentialRampToValueAtTime(110, t + 0.6);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.35, t + 0.05); g.gain.setValueAtTime(0.25, t + 0.6);
+    g.gain.exponentialRampToValueAtTime(0.12, t + 1.4); g.gain.exponentialRampToValueAtTime(0.0001, t + 3.1);
+    s.connect(f); f.connect(g); g.connect(sfxBus); s.start(t); s.stop(t + 3.2);
+  } else if (name === 'quack') {
+    [0, 0.17].forEach((d) => { const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(330, t + d); o.frequency.linearRampToValueAtTime(260, t + d + 0.12);
+      f.type = 'bandpass'; f.frequency.setValueAtTime(900, t + d); f.frequency.linearRampToValueAtTime(1400, t + d + 0.05); f.Q.value = 5;
+      g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(0.22, t + d + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.14);
+      o.connect(f); f.connect(g); g.connect(sfxBus); o.start(t + d); o.stop(t + d + 0.16); });
+  } else if (name === 'mrrp') {
+    const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'triangle';
+    o.frequency.setValueAtTime(420, t); o.frequency.linearRampToValueAtTime(620, t + 0.12); o.frequency.linearRampToValueAtTime(520, t + 0.22);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.12, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.26);
+    o.connect(g); g.connect(sfxBus); o.start(t); o.stop(t + 0.3);
   } else if (name === 'chime') {
     [523, 659, 784].forEach((f, i) => tone(f, t + i * 0.12, 0.8, 'sine', 0.1));
   } else if (name === 'baa') {
@@ -151,3 +168,22 @@ function stopMusic() {
 }
 export function setMusic(on) { settings.music = on; if (!ctx) return; on ? startMusic() : stopMusic(); }
 export function setSound(on) { settings.sound = on; if (sfxBus) sfxBus.gain.value = on ? 1 : 0; }
+
+// Weather in the background: a soft rain hiss and wind that rises and falls.
+let amb = null;
+export function setAmbience(rain, wind) {
+  if (!ctx || !sfxBus) return;
+  if (!amb) {
+    const loop = (lp, hp) => {
+      const s = ctx.createBufferSource(); s.buffer = noiseBuffer(4); s.loop = true;
+      const a = ctx.createBiquadFilter(); a.type = 'lowpass'; a.frequency.value = lp;
+      const b = ctx.createBiquadFilter(); b.type = 'highpass'; b.frequency.value = hp;
+      const g = ctx.createGain(); g.gain.value = 0; s.connect(a); a.connect(b); b.connect(g); g.connect(sfxBus); s.start();
+      return { g, a };
+    };
+    amb = { rain: loop(2600, 500), wind: loop(520, 120), t: 0 };
+  }
+  const now = ctx.currentTime;
+  amb.rain.g.gain.setTargetAtTime(rain * 0.05, now, 0.8);
+  if (now > amb.t) { amb.t = now + 1.5 + Math.random() * 2; amb.wind.g.gain.setTargetAtTime(wind * (0.02 + Math.random() * 0.04), now, 1.2); amb.wind.a.frequency.setTargetAtTime(380 + Math.random() * 300, now, 1); }
+}

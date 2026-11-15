@@ -249,7 +249,7 @@ function render(){
  $id('barUI').innerHTML=`${prompt?`<span class="prompt">${prompt}</span>`:''}${acts}`;
  $id('handUI').innerHTML=`<div class="fanhand">${fan}</div>`;
  // header
- $id('roundInfo').textContent=`Round ${S.round}, ${S.dealer==='p'?'your':"Winnie's"} crib`;
+ $id('roundInfo').textContent=`Round ${S.round}, ${S.dealer==='p'?'your':"Winnie's"} crib · ${scene.weather()}`;
  for(const w of ['p','c']){const gain=S.score[w]-S.from[w];$id('score-'+w).textContent=S.score[w];$id('gain-'+w).textContent=gain>0&&ph!=='walking'?`+${gain}`:'';}
  $id('log').innerHTML=S.log.map(t=>`<p>${t}</p>`).join('');
 }

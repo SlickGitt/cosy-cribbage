@@ -106,50 +106,58 @@ export const BIOMES = {
   river: {
     title: 'The river', line: 'Mind the ducks on the bridge.', surface: 'planks', prop: 'bucket',
     ground: '#7CA84E', patches: ['#88B456', '#6E9A44'], ...DIRT,
+    tones: ['#5E863A', '#688E3E', '#729642', '#7E9E48', '#8AA44E'],
+    pathTones: ['#7A5634', '#94693F', '#AC7E4E', '#C2945E', '#D4AA72'],
     decorate(ctx) {
-      const { c, rng, W, t, b, area, place, spot, add, after, laneAt, samples } = ctx;
-      grass(ctx, area * 40, ['#9CC860', '#5E8A3A']);
-      const yc = (t + b) / 2, ph = rng.range(0, 6), hw = 9;
-      const ry = (x) => yc + Math.sin(x * 0.017 + ph) * 8 + Math.sin(x * 0.05 + ph * 2) * 2;
+      const { c, rng, W, t, b, area, place, after, laneAt, samples, obj, critter } = ctx;
+      grassBlades(ctx, area * 25, ['#9CB860', '#4E7A34', '#C8A050']);
+      // the river: winding across, darker in the middle, with a muddy, reedy bank
+      const yc = (t + b) / 2, ph = rng.range(0, 6), hw = 10;
+      const ry = (x) => yc + Math.sin(x * 0.016 + ph) * 9 + Math.sin(x * 0.047 + ph * 2) * 2;
       for (let x = 0; x < W; x++) {
         const y0 = Math.round(ry(x));
-        rect(c, x, y0 - hw - 2, 1, hw * 2 + 4, '#7A6A42');
-        rect(c, x, y0 - hw, 1, hw * 2, '#2E5A7A');
-        rect(c, x, y0 - hw + 2, 1, hw * 2 - 3, '#3E7AA0');
+        rect(c, x, y0 - hw - 3, 1, 2, '#5E7A34'); rect(c, x, y0 + hw + 1, 1, 2, '#5E7A34');
+        rect(c, x, y0 - hw - 1, 1, hw * 2 + 2, '#6A5A3A');
+        for (let j = -hw; j < hw; j++) {
+          const d = Math.abs(j + 0.5) / hw, v = d + (((x * 7 + j * 13) % 5) - 2) * 0.04;
+          rect(c, x, y0 + j, 1, 1, v > 0.85 ? '#4E7A8E' : v > 0.55 ? '#3E6A84' : '#2E5670');
+        }
       }
-      for (let i = 0; i < W / 3; i++) { const x = rng.range(0, W); rect(c, x, ry(x) + rng.range(-hw + 3, hw - 3), rng.int(2, 4), 1, rng.pick(['#9CCBE8', '#5E9AC0'])); }
-      ctx.water = (x, y) => Math.abs(y - ry(x)) < hw + 3;
+      for (let i = 0; i < W / 2.5; i++) { const x = rng.range(0, W); rect(c, x, ry(x) + rng.range(-hw + 2, hw - 3), rng.int(2, 5), 1, rng.pick(['#8CB8D4', '#6A9AB8', '#B8D8EC'])); }
+      ctx.water = (x, y) => Math.abs(y - ry(x)) < hw + 4;
+      // lily pads and fallen leaves floating
+      for (let i = 0; i < area * 2; i++) { const x = rng.range(0, W), y = ry(x) + rng.range(-5, 5); if (Math.abs(x - laneAt(y)) > 20) S.lilypad(c, x, y, rng() < 0.3); }
+      for (let i = 0; i < area * 4; i++) { const x = rng.range(0, W), y = ry(x) + rng.range(-7, 7); rect(c, x, y, 2, 1, rng.pick(['#D8702E', '#E8A040', '#B8442A'])); }
       // a stone bridge where the lane crosses
       after(() => {
         const cross = samples.filter(([x, y]) => Math.abs(y - ry(x)) < hw + 5);
         if (!cross.length) return;
         for (const [x, y] of cross) rect(c, x - 10, y - 1, 21, 3, '#A89C8C');
         for (const [x, y] of cross) for (let i = -9; i < 10; i += 4) rect(c, x + i, y, 1, 1, '#8A8072');
-        for (const [x, y] of cross) { rect(c, x - 13, y - 2, 4, 4, '#7A7466'); rect(c, x + 10, y - 2, 4, 4, '#7A7466'); }
-        for (const [x, y] of cross) { rect(c, x - 13, y - 2, 4, 1, '#C0B8A6'); rect(c, x + 10, y - 2, 4, 1, '#C0B8A6'); }
-        for (const [x, y] of [cross[0], cross[cross.length - 1]]) { rect(c, x - 14, y - 4, 6, 6, '#8A8272'); rect(c, x + 9, y - 4, 6, 6, '#8A8272'); rect(c, x - 14, y - 4, 6, 1, '#D0C8B8'); rect(c, x + 9, y - 4, 6, 1, '#D0C8B8'); }
+        for (const [x, y] of cross) { rect(c, x - 14, y - 2, 5, 5, '#7A7466'); rect(c, x + 10, y - 2, 5, 5, '#7A7466'); }
+        for (const [x, y] of cross) { rect(c, x - 14, y - 2, 5, 1, '#C8C0AE'); rect(c, x + 10, y - 2, 5, 1, '#C8C0AE'); }
+        for (const [x, y] of [cross[0], cross[cross.length - 1]]) { rect(c, x - 15, y - 5, 7, 7, '#8A8272'); rect(c, x + 9, y - 5, 7, 7, '#8A8272'); rect(c, x - 15, y - 5, 7, 1, '#D8D0C0'); rect(c, x + 9, y - 5, 7, 1, '#D8D0C0'); }
       });
-      const lx = laneAt(yc);
-      // jetty and boat on whichever side has room
-      const jx = lx > W / 2 ? lx - rng.range(70, 120) : lx + rng.range(70, 120);
-      const jt = Math.round(ry(jx) - hw - 6);
-      add(jt, () => { S.jetty(c, jx, jt, hw + 10); S.rowboat(c, jx + 14, Math.round(ry(jx + 14)) + 2); });
-      for (let i = 0; i < area * 3; i++) {
-        const x = rng.range(0, W), side = rng() < 0.5 ? -1 : 1, y = ry(x) + side * (hw + 1);
-        if (Math.abs(x - laneAt(y)) > 18 && Math.abs(x - jx) > 14) add(y, () => S.reeds(c, x, y, rng));
+      // jetty and rowing boat off to one side
+      const lx = laneAt(yc), jx = lx > W / 2 ? lx - rng.range(60, 100) : lx + rng.range(60, 100), jt = Math.round(ry(jx) - hw - 6), len = hw + 10;
+      obj(jx, jt + len, sprite(`jetty|${len}`, 24, len + 10, (cc) => S.jetty(cc, 0, -len, len)));
+      obj(jx + 15, Math.round(ry(jx + 15)) + 3, sprite('boat', 24, 14, (cc) => S.rowboat(cc, 0, -2)));
+      // reeds on the banks
+      for (let i = 0; i < area * 4; i++) {
+        const x = rng.range(0, W), side = rng() < 0.5 ? -1 : 1, y = Math.round(ry(x) + side * (hw + 1));
+        if (Math.abs(x - laneAt(y)) > 18 && Math.abs(x - jx) > 16) obj(x, y, sprite(`reeds|${rng.int(0, 3)}`, 14, 14, (cc, r) => S.reeds(cc, 0, 0, r)), { sway: 2 });
       }
-      for (let i = 0; i < area * 1.5; i++) {
-        const x = rng.range(0, W), y = ry(x) + rng.range(-4, 4);
-        if (Math.abs(x - laneAt(y)) > 18 && Math.abs(x - jx) > 22) add(y - 6, () => S.lilypad(c, x, y, rng() < 0.4));
+      // ducks on the water, a heron on the bank
+      for (let i = 0; i < rng.int(2, 3); i++) {
+        const x = lx + rng.pick([-1, 1]) * rng.range(30, 90);
+        critter({ kind: 'duck', x, y: ry(x), water: ry, off: rng.range(-4, 4) });
       }
-      for (let i = 0; i < 5; i++) {
-        const x = rng.range(20, W - 20), y = ry(x) + rng.range(-3, 3);
-        if (Math.abs(x - laneAt(y)) > 24 && Math.abs(x - jx) > 22) add(y, () => S.duck(c, x, y, rng() < 0.5, rng() < 0.5));
-      }
-      place(area * 0.8, 26, 40, (x, y) => S.willow(c, x, y, rng), [24, 30]);
-      place(area * 0.8, 24, 30, (x, y) => A.tree(c, x, y, rng.pick(['green', 'lime', 'gold']), rng.range(1, 1.2), rng), [20, 26]);
-      place(area * 1.4, 18, 16, (x, y) => A.bush(c, x, y, rng.pick(['green', 'lime']), rng, rng.pick([null, '#F2A0B8'])));
-      place(area * 3, 12, 8, (x, y) => A.flowers(c, x, y, rng));
+      if (rng() < 0.7) { const x = lx + rng.pick([-1, 1]) * rng.range(36, 80), y = Math.round(ry(x) + hw + 4); critter({ kind: 'heron', x, y }); }
+      place(area * 0.9, 24, 34, (x, y) => obj(x, y, sprite(`willow|${rng.int(0, 3)}`, 40, 46, (cc, r) => S.willow(cc, 0, 0, r)), TREE), [22, 26]);
+      place(area * 0.8, 24, 30, (x, y) => obj(x, y, treeSprite(rng.pick(['fieldmaple', 'oakturn', 'beech', 'ash']), rng), TREE), [20, 24]);
+      place(area * 0.8, 16, 14, (x, y) => obj(x, y, bushSprite(rng.pick(['hawthorn', 'bracken']), rng), BUSH), [14, 10]);
+      place(area * 1.2, 12, 10, (x, y) => obj(x, y, tuftSprite(rng), { sway: 2 }), [6, 6], 50);
+      place(rng.int(1, 2), 14, 12, (x, y) => critter({ kind: rng() < 0.5 ? 'bird' : 'magpie', x, y }), [4, 4], 40);
     },
   },
   farm: {
@@ -195,18 +203,38 @@ export const BIOMES = {
   village: {
     title: 'The village', line: 'Someone has the kettle on.', surface: 'cloth', prop: 'teapot',
     ground: '#86A84A', patches: ['#92B454', '#7A9C42'], ...COBBLE,
+    tones: ['#6C883C', '#768E40', '#809644', '#8A9C48', '#96A24E'],
+    pathTones: ['#5E5650', '#7A7068', '#968A7E', '#ACA092', '#BCB2A2'],
     decorate(ctx) {
-      const { c, rng, area, place, spotNearLane, add } = ctx;
-      grass(ctx, area * 30, ['#A8C868', '#6E9038']);
-      const tea = spotNearLane(30, 44, [44, 34]);
-      if (tea) add(tea[1], () => S.tearoom(c, tea[0], tea[1], rng));
-      place(area * 2.6, 30, 44, (x, y) => S.house(c, x, y, rng), [36, 32], 30);
-      place(area * 2, 14, 18, (x, y) => S.cottageGarden(c, x, y, rng), [14, 6]);
-      place(area * 1.2, 14, 26, (x, y) => S.picket(c, x, y, rng.int(4, 8)), [24, 6]);
-      place(area * 1, 16, 30, (x, y) => S.hedge(c, x, y, rng.int(14, 26)), [26, 8]);
-      place(area * 1, 12, 34, (x, y) => S.lamppost(c, x, y), [4, 16], 16);
-      place(area * 0.5, 12, 50, (x, y) => S.cat(c, x, y, rng() < 0.5));
-      place(area * 0.8, 26, 40, (x, y) => A.tree(c, x, y, rng.pick(['gold', 'orange', 'red']), rng.range(1, 1.2), rng), [20, 26]);
+      const { c, rng, area, place, obj, critter, spotNearLane } = ctx;
+      grassBlades(ctx, area * 20, ['#A8B868', '#5E7A34', '#C8A050']);
+      const big = (key, w, h, fn) => sprite(key, w, h, fn);
+      // the tea room and the pub first, then cottages along the lane
+      const tea = spotNearLane(30, 30, [50, 36]);
+      if (tea) obj(tea[0], tea[1], big(`tearoom|${rng.int(0, 2)}`, 64, 48, (cc, r) => S.tearoom(cc, 0, 0, r)), { kind: 'house' });
+      const pb = spotNearLane(30, 40, [56, 36]);
+      if (pb) obj(pb[0], pb[1], big(`pub|${rng.int(0, 2)}`, 66, 48, (cc, r) => S.pub(cc, 0, 0, r)), { kind: 'house' });
+      // cottages lining the lane, each with a fenced front garden
+      const { t, b, laneAt } = ctx;
+      for (let y = t + 34; y < b - 4; y += rng.int(30, 38)) for (const dir of [-1, 1]) {
+        for (const off of [rng.range(32, 40), rng.range(78, 92)]) {
+          if (off > 60 && rng() < 0.45) continue;
+          const x = laneAt(y) + dir * off;
+          if (!ctx.spot(x, y, 26, [40, 34])) continue;
+          obj(x, y, big(`house|${rng.int(0, 7)}`, 46, 46, (cc, r) => S.house(cc, 0, 0, r)), { kind: 'house' });
+          if (ctx.spot(x, y + 8, 14, [38, 5])) {
+            obj(x, y + 8, sprite('frontfence', 44, 12, (cc) => { S.picket(cc, -18, 0, 5); S.picket(cc, 4, 0, 5); }));
+            for (let k = 0; k < 14; k++) { const fx = x + rng.range(-16, 16), fy = y + rng.range(2, 6); if (Math.abs(fx - x) > 3) rect(c, fx, fy, 1, 1, rng.pick(['#F2A0B8', '#E8603A', '#FFF4DC', '#FFD45E', '#B8A0E8', '#4E8A3A'])); }
+          }
+        }
+      }
+      place(3, 12, 50, (x, y) => obj(x, y, sprite('lamp', 14, 26, (cc) => S.lamppost(cc, 0, 0, true))), [5, 16], 16);
+      place(1, 14, 40, (x, y) => obj(x, y, sprite('phonebox', 14, 22, (cc) => S.phonebox(cc, 0, 0))), [10, 18], 16);
+      place(1, 12, 40, (x, y) => obj(x, y, sprite('postbox', 10, 14, (cc) => S.postbox(cc, 0, 0))), [6, 10], 14);
+      place(2, 14, 40, (x, y) => obj(x, y, sprite('bench', 18, 12, (cc) => S.bench(cc, 0, 0))), [14, 7], 20);
+      place(area * 0.6, 26, 40, (x, y) => obj(x, y, treeSprite(rng.pick(['fieldmaple', 'cherry', 'oakturn', 'sycamore']), rng), TREE), [20, 24]);
+      place(rng.int(1, 2), 14, 30, (x, y) => critter({ kind: 'cat', x, y }), [6, 6], 30);
+      place(rng.int(1, 2), 14, 12, (x, y) => critter({ kind: 'bird', x, y }), [4, 4], 30);
     },
   },
   churchyard: {
@@ -277,7 +305,7 @@ export const BIOMES = {
 
 export const MIDDLE = ['forest', 'orchard', 'river', 'farm', 'moor', 'village', 'churchyard', 'town'];
 // Biomes switched on. While the new style is tried out, only the restyled ones are used.
-export const ACTIVE = ['meadow', 'forest'];
+export const ACTIVE = ['meadow', 'forest', 'river', 'village'];
 
 const TREE = { kind: 'tree', cover: true, sway: 1 }, BUSH = { kind: 'bush', cover: true };
 const MEADOW_TREES = ['oakturn', 'beech', 'fieldmaple', 'birch', 'oak', 'cherry', 'sycamore', 'oakturn'];

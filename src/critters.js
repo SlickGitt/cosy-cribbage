@@ -102,6 +102,40 @@ const DRAW = {
     rect(c, X(1), -9 + up, 1, 3, '#A8886A'); rect(c, X(2), -9 + up, 1, 3, '#C8A88A'); rect(c, X(3), -5 + up, 1, 1, INK);
     rect(c, X(-4, 2), -3 + up, 2, 2, '#FFF8EC'); if (f === 'twitch') rect(c, X(4), -4, 1, 1, '#F2A0B8');
   },
+  duck(c, f, flip) {
+    const X = (dx, w = 1) => (flip ? -dx - w + 1 : dx), bob = f === 'b' ? 1 : 0, brown = false;
+    rect(c, X(-4, 9), 1, 9, 1, 'rgba(255,255,255,0.35)');
+    rect(c, X(-3, 7), -2 + bob, 7, 3, '#9A6A44'); rect(c, X(-4, 2), -2 + bob, 2, 2, '#7A5034'); rect(c, X(-2, 4), -1 + bob, 4, 1, '#B88A5A');
+    rect(c, X(2, 2), -5 + bob, 2, 3, '#2E6A3E'); rect(c, X(2, 2), -2 + bob, 2, 1, '#F5F2EA'); rect(c, X(4), -4 + bob, 1, 1, '#F2B63C'); rect(c, X(3), -5 + bob, 1, 1, INK);
+  },
+  heron(c, f, flip) {
+    const X = (dx, w = 1) => (flip ? -dx - w + 1 : dx);
+    if (f === 'fly1' || f === 'fly2') {
+      rect(c, X(-4, 9), -16, 9, 2, '#9AA0A8'); rect(c, X(5, 3), -16, 3, 1, '#C8CCD2'); rect(c, X(-9, 5), -15, 5, 1, '#6A6E76');
+      const wy = f === 'fly1' ? -19 : -13; rect(c, X(-3, 7), wy, 7, 1, '#7A808A'); rect(c, X(-2, 5), wy + (f === 'fly1' ? 1 : -1), 5, 1, '#7A808A');
+      return;
+    }
+    oval(c, 0, 1, 3, 1, SH);
+    rect(c, X(-1), -6, 1, 7, '#C8A040'); rect(c, X(1), -6, 1, 7, '#C8A040');
+    rect(c, X(-3, 6), -11, 6, 5, '#9AA0A8'); rect(c, X(-4, 2), -8, 2, 2, '#6A6E76');
+    const peck = f === 'peck' ? 3 : 0;
+    rect(c, X(2), -16 + peck, 1, 6 - peck, '#E0E2E6'); rect(c, X(2, 2), -17 + peck, 2, 2, '#E0E2E6'); rect(c, X(2, 2), -17 + peck, 2, 1, '#2B2A30');
+    rect(c, X(4, 3), -16 + peck, 3, 1, '#E8B030');
+  },
+  cat(c, f, flip) {
+    const X = (dx, w = 1) => (flip ? -dx - w + 1 : dx), col = '#E07A2E', dk = '#B85A20';
+    oval(c, 0, 1, 4, 1, SH);
+    if (f === 'walk1' || f === 'walk2') {
+      rect(c, X(-3, 7), -4, 7, 3, col); rect(c, X(3, 3), -6, 3, 3, col); rect(c, X(3), -7, 1, 1, col); rect(c, X(5), -7, 1, 1, col);
+      rect(c, X(-1), -3, 1, 1, dk); rect(c, X(1), -3, 1, 1, dk); rect(c, X(-6, 3), f === 'walk1' ? -6 : -5, 3, 1, col);
+      const a = f === 'walk1' ? 0 : 1; rect(c, X(-3 + a), -1, 1, 1, dk); rect(c, X(2 - a), -1, 1, 1, dk); rect(c, X(4), -5, 1, 1, '#4A6A2E');
+      return;
+    }
+    const flick = f === 'flick' ? 1 : 0;
+    rect(c, X(-2, 5), -5, 5, 5, col); rect(c, X(-1, 4), -8, 4, 3, col); rect(c, X(-1), -9, 1, 1, col); rect(c, X(2), -9, 1, 1, col);
+    rect(c, X(0), -7, 1, 1, '#4A6A2E'); rect(c, X(2), -7, 1, 1, '#4A6A2E'); rect(c, X(-1, 2), -4, 2, 1, dk); rect(c, X(-1, 2), -2, 2, 1, dk);
+    rect(c, X(-5, 3), -1 - flick, 3, 1, col); rect(c, X(-5), -2 - flick, 1, 1, col);
+  },
   butterfly(c, f) {
     const col = f === 'a' ? '#F2B63C' : '#F2B63C';
     if (f === 'a') { rect(c, -2, -1, 2, 2, col); rect(c, 1, -1, 2, 2, col); rect(c, -2, -1, 1, 1, '#E8603A'); rect(c, 2, -1, 1, 1, '#E8603A'); }
@@ -109,8 +143,8 @@ const DRAW = {
     rect(c, 0, -1, 1, 2, INK);
   },
 };
-const BOX = { sheep: [22, 20], cow: [30, 22], bird: [14, 24], magpie: [22, 24], pheasant: [30, 26], squirrel: [20, 18], rabbit: [16, 18], hare: [24, 22], butterfly: [10, 10] };
-const TYPE = { magpie: 'bird', pheasant: 'bird', hare: 'rabbit' };
+const BOX = { sheep: [22, 20], cow: [30, 22], bird: [14, 24], magpie: [22, 24], pheasant: [30, 26], squirrel: [20, 18], rabbit: [16, 18], hare: [24, 22], butterfly: [10, 10], duck: [16, 12], heron: [26, 26], cat: [18, 16] };
+const TYPE = { magpie: 'bird', pheasant: 'bird', heron: 'bird', hare: 'rabbit' };
 const frame = (kind, f, flip) => sprite(`cr|${kind}|${f}|${flip ? 1 : 0}`, BOX[kind][0], BOX[kind][1], (c) => DRAW[kind](c, f, flip), { outline: kind !== 'butterfly' });
 
 // ---------- behaviour ----------
@@ -146,8 +180,8 @@ export function makeCritters(specs, objects, seed, hooks) {
       cr.tail = 1.2; cr.flip = !cr.flip;
     } else if (cr.type === 'bird') {
       if (cr.st === 'fly') return false;
-      if (by === 'click') { sfx('flap'); if (cr.kind === 'pheasant') { sfx('pheasant'); say(cr, 'Kok-kok!'); } else if (cr.kind === 'magpie') { sfx('chak'); say(cr, 'Chak!'); } else sfx('tweet'); }
-      cr.st = 'fly'; cr.flip = rng() < 0.5; cr.vx = (cr.flip ? -1 : 1) * rng.range(35, 55); cr.vy = rng.range(-30, -20);
+      if (by === 'click') { sfx('flap'); if (cr.kind === 'heron') { sfx('caw'); say(cr, 'Kraak!'); } else if (cr.kind === 'pheasant') { sfx('pheasant'); say(cr, 'Kok-kok!'); } else if (cr.kind === 'magpie') { sfx('chak'); say(cr, 'Chak!'); } else sfx('tweet'); }
+      cr.st = 'fly'; cr.flip = rng() < 0.5; const sl = cr.kind === 'heron' ? 0.5 : 1; cr.vx = (cr.flip ? -1 : 1) * rng.range(35, 55) * sl; cr.vy = rng.range(-30, -20) * sl;
       for (const o of list) if (o !== cr && o.type === 'bird' && o.st !== 'fly' && Math.hypot(o.x - cr.x, o.y - cr.y) < 30) setTimeout(() => poke(o, 'flock'), rng.range(80, 300));
     } else if (cr.type === 'squirrel') {
       if (by === 'click') { sfx('chitter'); say(cr, rng.pick(['Chk chk!', 'Eek!'])); }
@@ -158,6 +192,12 @@ export function makeCritters(specs, objects, seed, hooks) {
       if (cr.kind === 'hare') { const [x, y] = away(cr, 60); moveTo(cr, x, y, 80, 'bolt'); cr.cover = null; return true; }
       const cv = coverNear(cr.x, cr.y, null, 90);
       if (cv) { cr.cover = cv; moveTo(cr, cv.x, cv.y + 1, 55, 'bolt'); } else { const [x, y] = away(cr, 30); moveTo(cr, x, y, 55, 'bolt'); }
+    } else if (cr.type === 'duck') {
+      if (by === 'click') { sfx('quack'); say(cr, 'Quack!'); }
+      cr.flee = 2.5; cr.dir = -(cr.dir || 1);
+    } else if (cr.type === 'cat') {
+      if (by === 'click') { sfx('mrrp'); say(cr, rng.pick(['Mrrp?', 'Mew.', 'Prrr.'])); }
+      let [x, y] = away(cr, 12); if (!safe(x, y)) [x, y] = [cr.hx, cr.hy]; moveTo(cr, x, y, 22, 'trot');
     } else if (cr.type === 'butterfly') {
       cr.flee = 3;
     }
@@ -222,6 +262,16 @@ export function makeCritters(specs, objects, seed, hooks) {
         if (cr.st === 'idle' && cr.t <= 0) { cr.t = rng.range(1.5, 4); if (rng() < 0.4) { const x = cr.x + rng.range(-8, 8), y = cr.y + rng.range(-3, 3); if (safe(x, y)) moveTo(cr, x, y, 16, 'wander'); } }
         const moving = cr.st === 'wander' || cr.st === 'bolt';
         cr.f = moving ? (Math.floor(t * (cr.st === 'bolt' ? 10 : 6)) % 2 ? 'hop' : 'sit') : (Math.sin(t * 6 + cr.ph) > 0.85 ? 'twitch' : 'sit');
+      } else if (k === 'duck') {
+        if (cr.flee) cr.flee = Math.max(0, cr.flee - dt);
+        cr.dir = cr.dir || (rng() < 0.5 ? -1 : 1);
+        cr.x += cr.dir * dt * (cr.flee ? 22 : 3); if (Math.abs(cr.x - cr.hx) > 34) cr.dir = cr.x > cr.hx ? -1 : 1;
+        cr.y = cr.water ? cr.water(cr.x) + cr.off : cr.hy; cr.flip = cr.dir < 0;
+        cr.f = Math.floor(t * 2 + cr.ph) % 2 ? 'a' : 'b';
+      } else if (k === 'cat') {
+        if (cr.st === 'idle' && cr.t <= 0) { cr.t = rng.range(4, 9); if (rng() < 0.3) { const x = cr.hx + rng.range(-10, 10), y = cr.hy + rng.range(-3, 3); if (safe(x, y)) moveTo(cr, x, y, 8, 'wander'); } }
+        const moving = cr.st === 'wander' || cr.st === 'trot';
+        cr.f = moving ? (Math.floor(t * 8) % 2 ? 'walk1' : 'walk2') : (Math.sin(t * 1.3 + cr.ph) > 0.8 ? 'flick' : 'sit');
       } else if (k === 'butterfly') {
         if (cr.flee) { cr.flee = Math.max(0, cr.flee - dt); cr.fy = (cr.fy || 0) - dt * 20; } else cr.fy = (cr.fy || 0) * (1 - dt);
         cr.x = cr.hx + Math.sin(t * 0.5 + cr.ph) * 10 + Math.sin(t * 1.3 + cr.ph) * 2;
@@ -248,7 +298,7 @@ export function makeCritters(specs, objects, seed, hooks) {
       for (const cr of list) {
         if (!visible(cr)) continue;
         const d = Math.hypot(cr.x - ax, (cr.y - 4 - (cr.z || 0)) - ay);
-        if (d < (cr.kind === 'cow' || cr.kind === 'pheasant' ? 11 : 8) && d < bd) { bd = d; best = cr; }
+        if (d < (cr.kind === 'cow' || cr.kind === 'pheasant' || cr.kind === 'heron' ? 11 : 8) && d < bd) { bd = d; best = cr; }
       }
       return best;
     },
@@ -272,7 +322,7 @@ export function critterIcon(kind) {
   const cv = document.createElement('canvas'); cv.className = 'px-sprite critter-icon';
   if (kind === 'deer') { cv.width = 18; cv.height = 18; A.deer(cv.getContext('2d'), 2, 9); return cv; }
   if (kind === 'mushroom') { cv.width = 14; cv.height = 10; A.mushrooms(cv.getContext('2d'), 3, 4, makeRng(3)); return cv; }
-  const f = kind === 'butterfly' ? 'a' : kind === 'squirrel' ? 'sit' : 'stand', s = frame(kind, f, false);
+  const f = kind === 'butterfly' || kind === 'duck' ? 'a' : kind === 'squirrel' || kind === 'cat' ? 'sit' : 'stand', s = frame(kind, f, false);
   cv.width = s.cv.width; cv.height = s.cv.height; cv.getContext('2d').drawImage(s.cv, 0, 0);
   return cv;
 }

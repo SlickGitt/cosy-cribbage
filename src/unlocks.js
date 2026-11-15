@@ -68,6 +68,9 @@ export const GUIDE = [
   { id: 'butterfly', name: 'Butterfly', hint: 'Over the flowers' },
   { id: 'squirrel', name: 'Squirrel', hint: 'Darting between trees' },
   { id: 'deer', name: 'Deer', hint: 'Watching from the forest' },
+  { id: 'duck', name: 'Mallard', hint: 'Paddling on the river' },
+  { id: 'heron', name: 'Heron', hint: 'Still as a post by the water' },
+  { id: 'cat', name: 'Village cat', hint: 'Sunning itself by a cottage' },
   { id: 'mushroom', name: 'Puffball', hint: 'In a forest clearing' },
 ];
 const GUIDE_FEAT = { id: 'naturalist', tier: 'rare', name: 'Naturalist', how: 'Fill the field guide', reward: 'back:guide' };

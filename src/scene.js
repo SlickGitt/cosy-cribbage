@@ -9,8 +9,9 @@ import { makeLeaves } from './weather.js';
 import { gingham, tartan, patchwork, welsh, stumpTable, planks, straw, stone, cloth, stripes, prop, seated, lantern } from './reststop.js';
 import { BIOMES } from './biomes.js';
 import { makeRng } from './pixel.js';
-import { sfx, initAudio } from './sound.js';
+import { sfx, initAudio, setAmbience } from './sound.js';
 import { makeCritters } from './critters.js';
+import { WEATHER, DIALS, pickWeather } from './weathers.js';
 
 const LINES = {
   Fifteen: ['Fifteen two!', 'Fifteen, lovely.', 'Ooh, fifteen.'], '31': ['Thirty-one! Lovely.', 'Thirty-one, ta very much.'],
@@ -45,7 +46,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
   let lane = null, scale = 4, aw = 0, ah = 0, camX = 0, camY = 0, last = 0, L = null;
   let mode = 'stop', surfaceAlpha = 1, stop = { from: { p: 0, c: 0 }, hole: 0, biome: 'meadow' }, banked = { p: 0, c: 0 };
   let pos = { p: 0, c: 0 }, target = { p: 0, c: 0 }, stepAt = { p: 0, c: 0 }, walkDone = null;
-  let gear = { rug: 'tartan', lantern: 'gold' }, raining = false, rainAmt = 0, drops = [], mist = null, mistAmt = 0, ambientAt = performance.now() + 30000, surf = { key: '', cv: null }, titleY = -1, titleX = 0, looping = false, clouds = null, crit = null, parts = [], light = null, smokeAt = 0, deer = null, seenForest = false, visited = new Set(['meadow']), bannerTimer = 0, speechTimer = 0, leaves = null;
+  let gear = { rug: 'tartan', lantern: 'gold' }, cloudX = 0, wxKind = 'fair', wx = { ...WEATHER.fair }, flash = 0, boltAt = 0, ripples = [], drops = [], mist = null, mistAmt = 0, ambientAt = performance.now() + 30000, surf = { key: '', cv: null }, titleY = -1, titleX = 0, looping = false, clouds = null, crit = null, parts = [], light = null, smokeAt = 0, deer = null, seenForest = false, visited = new Set(['meadow']), bannerTimer = 0, speechTimer = 0, leaves = null;
 
   // ---- layout: where the lane, the surface, the hand and the action bar go on this screen.
   // u is the UI scale (1 at 1440x900); card widths are worked out here so the
@@ -292,10 +293,12 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     c.restore();
     // soft cloud shadows drifting slowly over the lane
     if (!clouds) clouds = c.createPattern(makeClouds(lane.seed), 'repeat');
-    const drift = t / 1000 * 4;
-    c.save(); c.translate(-((ix - drift) % 512) - 512, -((iy - drift * 0.35) % 384) - 384); c.fillStyle = clouds; c.fillRect(0, 0, aw + 1024, ah + 768); c.restore();
+    cloudX += dt * (4 + wx.wind * 16);
+    const drift = cloudX;
+    c.save(); c.globalAlpha = Math.min(1, wx.clouds); c.translate(-((ix - drift) % 512) - 512, -((iy - drift * 0.35) % 384) - 384); c.fillStyle = clouds; c.fillRect(0, 0, aw + 1024, ah + 768); c.restore();
+    if (wx.clouds > 1) { const d2 = drift * 1.3 + 256; c.save(); c.globalAlpha = Math.min(1, wx.clouds - 1); c.translate(-((ix - d2) % 512) - 512, -((iy - d2 * 0.3 + 190) % 384) - 384); c.fillStyle = clouds; c.fillRect(0, 0, aw + 1024, ah + 768); c.restore(); }
     const midY = iy + ah / 2, near = lane.holes.reduce((a, h) => (Math.abs(h.y - midY) < Math.abs(a.y - midY) ? h : a), lane.holes[0]), inForest = near.biome === 'forest';
-    mistAmt += ((inForest ? 1 : 0) - mistAmt) * Math.min(1, dt * 0.5);
+    mistAmt += (Math.max(inForest ? 1 : 0, wx.fog * 1.4) - mistAmt) * Math.min(1, dt * 0.5);
     if (mistAmt > 0.02) {
       if (!mist) mist = c.createPattern(makeClouds(lane.seed + 77, [236, 238, 240], 0.9), 'repeat');
       const md = t / 1000 * 2.5;
@@ -303,6 +306,9 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     }
     if (!light || light.width !== aw || light.height !== ah) light = makeLight(aw, ah);
     c.drawImage(light, 0, 0);
+    if (wx.dark > 0.01) { c.fillStyle = `rgba(44,48,70,${(wx.dark * 0.3).toFixed(3)})`; c.fillRect(0, 0, aw, ah); }
+    if (wx.sun > 0.01) { c.fillStyle = `rgba(255,214,140,${(wx.sun * 0.07).toFixed(3)})`; c.fillRect(0, 0, aw, ah); }
+    if (wx.fog > 0.01) { c.fillStyle = `rgba(222,224,228,${(wx.fog * 0.38).toFixed(3)})`; c.fillRect(0, 0, aw, ah); }
 
     // the rest stop
     if (surfaceAlpha > 0.02) {
@@ -317,15 +323,30 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
       c.restore();
     }
     leaves.update(dt); leaves.draw(c);
-    // drizzle on some rounds
-    rainAmt += ((raining ? 1 : 0) - rainAmt) * Math.min(1, dt * 0.6);
-    if (rainAmt > 0.02) {
-      if (drops.length < 140) for (let i = drops.length; i < 140; i++) drops.push({ x: Math.random() * aw, y: Math.random() * ah, v: 90 + Math.random() * 50 });
-      c.fillStyle = `rgba(200,212,228,${(0.4 * rainAmt).toFixed(3)})`;
-      const n = Math.round(drops.length * rainAmt);
-      for (let i = 0; i < n; i++) { const d = drops[i]; d.y += d.v * dt; d.x -= d.v * dt * 0.25; if (d.y > ah) { d.y = -3; d.x = Math.random() * (aw + 20); } c.fillRect(Math.round(d.x), Math.round(d.y), 1, 3); }
-      c.fillStyle = `rgba(110,120,140,${(0.07 * rainAmt).toFixed(3)})`; c.fillRect(0, 0, aw, ah);
+    // weather: ease every dial towards the current kind
+    const goal = WEATHER[wxKind], k2 = Math.min(1, dt * 0.35);
+    for (const d of DIALS) wx[d] += ((goal[d] || 0) - wx[d]) * k2;
+    leaves.wind = wx.wind;
+    setAmbience(wx.rain, wx.wind);
+    if (wx.rain > 0.02) {
+      while (drops.length < 260) drops.push({ x: Math.random() * aw, y: Math.random() * ah, v: 100 + Math.random() * 60 });
+      const n = Math.round(260 * wx.rain), len = 2 + Math.round(wx.rain * 3), slant = 0.15 + wx.wind * 0.45;
+      c.fillStyle = `rgba(206,218,234,${(0.25 + 0.25 * wx.rain).toFixed(3)})`;
+      for (let i = 0; i < n; i++) {
+        const d = drops[i]; d.y += d.v * dt * (1 + wx.rain * 0.6); d.x -= d.v * dt * slant;
+        if (d.y > ah) { if (wx.rain > 0.6 && Math.random() < 0.5) ripples.push({ x: d.x, y: Math.random() * ah, life: 0.25 }); d.y = -len; d.x = Math.random() * (aw + 40); }
+        for (let j = 0; j < len; j++) c.fillRect(Math.round(d.x + j * slant), Math.round(d.y + j), 1, 1);
+      }
+      ripples = ripples.filter((r) => (r.life -= dt) > 0);
+      c.fillStyle = 'rgba(220,230,240,0.45)';
+      for (const r of ripples) { const w = r.life > 0.12 ? 1 : 2; c.fillRect(Math.round(r.x - w), Math.round(r.y), w * 2 + 1, 1); }
     }
+    // lightning and thunder
+    if (wx.storm > 0.5 && t > boltAt) {
+      boltAt = t + 7000 + Math.random() * 12000;
+      if (boltAt - t < 1e6 && mode !== 'title') { flash = 1; setTimeout(() => sfx('thunder'), 700 + Math.random() * 1400); }
+    }
+    if (flash > 0) { c.fillStyle = `rgba(240,244,255,${(flash * 0.5).toFixed(3)})`; c.fillRect(0, 0, aw, ah); flash = Math.max(0, flash - dt * (flash > 0.6 ? 2.5 : 4)); if (flash < 0.6 && flash > 0.5 && Math.random() < 0.5) flash = 0.9; }
     // the odd wood pigeon or rook, now and then
     if (t > ambientAt) { ambientAt = t + 50000 + Math.random() * 70000; if (lane && mode !== 'title') sfx(Math.random() < 0.6 ? 'coo' : 'caw'); }
     requestAnimationFrame(frame);
@@ -342,8 +363,9 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     const s = o.s, bx = o.x - s.ax - ix, by = o.y - s.ay - iy;
     if (o.shake) o.shake = Math.max(0, o.shake - dt);
     let dx = 0;
-    if (o.sway === 1) dx = Math.round(Math.sin(t / 900 + o.ph + o.x * 0.02) * 0.8);
-    else if (o.sway === 2) dx = Math.round(Math.sin(t / 650 + o.x * 0.08) * 0.9);
+    const gust = 1 + wx.wind * (1.4 + Math.sin(t / 1700 + o.x * 0.01) * 0.6), fast = 1 + wx.wind * 1.2;
+    if (o.sway === 1) dx = Math.round(Math.sin((t / 900) * fast + o.ph + o.x * 0.02) * 0.8 * gust);
+    else if (o.sway === 2) dx = Math.round(Math.sin((t / 650) * fast + o.x * 0.08) * 0.9 * gust);
     if (o.shake) dx = Math.round(Math.sin(t / 40) * 2 * Math.min(1, o.shake * 2));
     if (!dx) { c.drawImage(s.cv, bx, by); return; }
     const split = Math.max(1, s.ay - (o.sway === 2 ? 3 : 11)), w = s.cv.width, h = s.cv.height;
@@ -445,7 +467,11 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
       const hole = Math.round((from.p + from.c) / 2);
       stop = { from: { ...from }, hole, biome: lane.holes[Math.max(1, hole)].biome };
       banked = { ...from }; pos = { ...from }; target = { ...from }; mode = 'stop';
-      raining = from.p + from.c > 0 && Math.random() < 0.25;
+      const prevKind = wxKind;
+      wxKind = from.p + from.c > 0 ? pickWeather(wxKind) : pickWeather(null);
+      boltAt = performance.now() + 2500;
+      const sayW = WEATHER[wxKind].say;
+      if (wxKind !== prevKind && sayW) setTimeout(() => { if (mode === 'stop') say(sayW[Math.floor(Math.random() * sayW.length)]); }, 2600);
       return stop.biome;
     },
     setBanked(score) { banked = { p: Math.min(121, score.p), c: Math.min(121, score.c) }; },
@@ -458,9 +484,11 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     },
     say,
     // Menu backdrop: drift slowly down the lane with nobody on it.
+    weather: () => WEATHER[wxKind].name,
+    setWeather(k, now) { wxKind = k; if (now) Object.assign(wx, WEATHER[k]); },
     setGear(g) { gear = { ...gear, ...g }; surf.key = ''; },
     resume() { if (mode === 'title') { mode = 'stop'; camX = camY = -1; } },
-    title() { raining = false; mode = 'title'; titleY = -1; camX = camY = -1; speech.hidden = true; banner.hidden = true; bubble.hidden = true; deer = null; },
+    title() { wxKind = Math.random() < 0.5 ? 'fair' : 'sunny'; mode = 'title'; titleY = -1; camX = camY = -1; speech.hidden = true; banner.hidden = true; bubble.hidden = true; deer = null; },
     react(label, who) {
       const key = label.startsWith('Run') ? 'Run' : label;
       const opts = (who === 'c' ? LINES : MINE)[key];
