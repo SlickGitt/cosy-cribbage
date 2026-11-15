@@ -38,19 +38,30 @@ export function gingham(c, x, y, w, h) {
   for (let i = 0; i < w; i += 3) { rect(c, x + i, y - 2, 1, 2, '#F5EBDA'); rect(c, x + i + 1, y + h, 1, 2, '#F5EBDA'); }
 }
 
-export function stumpTable(c, cx, cy, rx, ry) {
-  oval(c, cx + 4, cy + ry + 6, rx + 6, 6, 'rgba(20,10,10,0.3)');
-  for (let k = 0; k < 10; k++) oval(c, cx, cy + k, rx + 3, ry + 3, '#5A3420');
-  for (let i = -rx; i <= rx; i += 7) rect(c, cx + i, cy + ry - 2, 2, 12, '#4A2A18');
-  rect(c, cx - rx - 10, cy + ry + 2, 10, 4, '#5A3420'); rect(c, cx + rx, cy + ry + 3, 12, 4, '#5A3420');
-  oval(c, cx, cy, rx + 3, ry + 3, '#6B3E26');
-  oval(c, cx, cy, rx, ry, '#D49A54');
-  for (let k = 1; k < 9; k++) {
-    const r1 = rx * (1 - k / 9), r2 = ry * (1 - k / 9);
-    oval(c, cx, cy, Math.round(r1), Math.max(1, Math.round(r2)), k % 2 ? '#C08444' : '#D49A54');
+// Rows of a rounded rectangle, drawn pixel by pixel so the edge stays crisp.
+function rrect(c, x, y, w, h, r, col) {
+  for (let j = 0; j < h; j++) {
+    const d = j < r ? r - j - 0.5 : j >= h - r ? j - (h - r) + 0.5 : 0;
+    const inset = d ? Math.round(r - Math.sqrt(Math.max(0, r * r - d * d))) : 0;
+    rect(c, x + inset, y + j, w - inset * 2, 1, col);
   }
-  rect(c, cx - 2, cy - 1, 4, 2, '#A86A34');
-  for (let i = 0; i < 18; i++) rect(c, cx + rx * 0.2 + i * 1.4, cy - ry * 0.3 + i * 0.5, 1, 1, '#9A6230');
+}
+
+// A wide slab of a felled tree, used as the forest table.
+export function stumpTable(c, x, y, w, h) {
+  const r = Math.min(16, Math.round(h / 3));
+  rrect(c, x + 2, y + 5, w, h, r, 'rgba(20,10,10,0.3)');
+  rrect(c, x - 2, y - 2, w + 4, h + 6, r + 2, '#4A2A18');
+  rrect(c, x - 2, y - 2, w + 4, h + 3, r + 2, '#6B3E26');
+  for (let i = 4; i < w; i += 7) rect(c, x + i, y + h + 1, 2, 2, '#3A2012');
+  rrect(c, x, y, w, h, r, '#D49A54');
+  const rings = 7, stepX = (w / 2 - 10) / rings, stepY = (h / 2 - 6) / rings;
+  for (let k = 1; k <= rings; k++) {
+    const ix = Math.round(k * stepX), iy = Math.round(k * stepY);
+    rrect(c, x + ix, y + iy, w - ix * 2, h - iy * 2, Math.max(2, r - k), k % 2 ? '#C88C4A' : '#D49A54');
+  }
+  for (let i = 0; i < 26; i++) rect(c, x + w * 0.62 + i * 1.3, y + h * 0.3 + i * 0.6, 1, 1, '#9A6230');
+  rect(c, x + 6, y + 3, w * 0.3, 1, 'rgba(255,240,210,0.35)');
 }
 
 export function drawRestStop(c, opts) {
@@ -131,7 +142,7 @@ export function drawRestStop(c, opts) {
     rect(c, s.x - 8, s.y + 8, 6, 12, '#3E7A5E'); rect(c, s.x - 8, s.y + 6, 6, 3, '#C8C0B0');
     rect(c, s.x + 6, s.y + s.h + 4, 4, 4, '#D0302A'); rect(c, s.x + 12, s.y + s.h + 5, 4, 4, '#D0302A'); rect(c, s.x + 8, s.y + s.h + 3, 1, 2, '#4E8A3A');
   } else {
-    stumpTable(c, s.x + s.w / 2, s.y + s.h / 2, Math.round(s.w / 2), Math.round(s.h / 2));
+    stumpTable(c, s.x, s.y, s.w, s.h);
     A.mushrooms(c, s.x + s.w - 12, s.y + s.h + 6, rng);
     A.log(c, s.x - 26, s.y + s.h / 2 + 4);
   }

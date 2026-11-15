@@ -12,17 +12,18 @@ const $id = (id) => document.getElementById(id);
 
 // Place the card areas over the scene and size the cards to fit.
 function placeUI() {
-  const L = scene.layout(), s = L.surface, h = L.hand;
-  const su = $id('surfaceUI'), hu = $id('handUI');
-  Object.assign(su.style, { left: s.x + 'px', top: s.y + 'px', width: s.w + 'px', height: s.h + 'px' });
-  Object.assign(hu.style, { left: h.x + 'px', top: h.y + 'px', width: h.w + 'px', height: h.h + 'px' });
-  const seat = L.seats[0];
-  Object.assign($id('oppUI').style, { left: (seat.x - 24) + 'px', top: (seat.y - 8) + 'px' });
-  const cw = Math.max(38, Math.min(112, (s.h - 64) / 1.42, s.w / 6.4));
-  const ch = Math.max(44, Math.min(150, (h.h - 90) / 1.42, h.w / (L.portrait ? 5.3 : 6.9)));
-  document.body.style.setProperty('--cw', cw.toFixed(1) + 'px');
-  document.body.style.setProperty('--ch', ch.toFixed(1) + 'px');
-  document.body.style.setProperty('--co', (cw * 0.62).toFixed(1) + 'px');
+  const L = scene.layout(), s = L.surface, u = L.u;
+  const box = (id, r) => Object.assign($id(id).style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' });
+  document.documentElement.style.fontSize = (16 * u).toFixed(2) + 'px';
+  document.body.classList.toggle('portrait', L.portrait);
+  box('surfaceUI', { x: s.x, y: s.y + L.oppH, w: s.w, h: s.h - L.oppH });
+  box('barUI', L.bar);
+  box('handUI', L.hand);
+  Object.assign($id('oppUI').style, { left: L.seats[0].x + 'px', top: (s.y + 14 * u) + 'px' });
+  const root = document.body.style;
+  root.setProperty('--cw', L.cw.toFixed(1) + 'px');
+  root.setProperty('--ch', L.ch.toFixed(1) + 'px');
+  root.setProperty('--co', (L.cw * 0.6).toFixed(1) + 'px');
 }
 window.addEventListener('resize', () => { scene.relayout(); placeUI(); if (S) render(); });
 
@@ -48,7 +49,7 @@ function pop(text,sel,who,delay=0){
   const a=st.getBoundingClientRect(),rs=els.map(e=>e.getBoundingClientRect());
   const b={left:Math.min(...rs.map(r=>r.left)),top:Math.min(...rs.map(r=>r.top))};b.width=Math.max(...rs.map(r=>r.right))-b.left;b.height=Math.max(...rs.map(r=>r.bottom))-b.top;
   const d=document.createElement('div');d.className='pop'+(who==='c'?' c':'');d.textContent=text;
-  d.style.left=(b.left-a.left+b.width/2)+'px';d.style.top=(b.top-a.top-(sel.includes('hl')?18:-Math.min(b.height*.35,60)))+'px';
+  d.style.left=(b.left-a.left+b.width/2)+'px';d.style.top=(b.top-a.top+(sel.includes('hl')?b.height*.42:-6))+'px';
   document.getElementById('fx').appendChild(d);setTimeout(()=>d.remove(),1700);
  });},delay);
 }
@@ -159,39 +160,39 @@ function render(){
  let opp;
  if(ph==='show'||(ph==='over'&&S.show&&S.kept))opp=`<div class="held small${active('c')?'':' faded'}">${rowCards('c').map(c=>cardHTML(c,{hl:hlIds.includes(c.id)})).join('')}</div>`;
  else{const n=ph==='discard'?6:ph==='cut'?4:P?P.hand.c.length:0;opp=`<div class="fan small">${Array.from({length:n},()=>backHTML()).join('')}</div>`;}
- $id('oppUI').innerHTML=opp;
+ const ou=$id('oppUI');ou.innerHTML=opp;
+ {const L=scene.layout(),sf=L.surface,hw=ou.offsetWidth/2,m=14*L.u;ou.style.left=Math.max(sf.x+m+hw,Math.min(sf.x+sf.w-m-hw,L.seats[0].x))+'px';}
  // the surface: starter, pile and crib
  const cribName=S.dealer==='p'?'Your crib':"Winnie's crib";
- const starter=`<div class="spot"><span class="slabel">${S.starter?'Starter':'Deck'}</span><div id="starter">${S.starter?cardHTML(S.starter,{hl:hlIds.includes(S.starter.id)}):`<div class="crib">${[0,3,6].map(o=>backHTML(`position:absolute;left:${o}px;top:${o}px`)).join('')}</div>`}</div></div>`;
+ const starter=`<div class="spot"><span class="tag">${S.starter?'Starter':'Deck'}</span><div id="starter">${S.starter?cardHTML(S.starter,{hl:hlIds.includes(S.starter.id)}):`<div class="crib">${[0,3,6].map(o=>backHTML(`position:absolute;left:${o}px;top:${o}px`)).join('')}</div>`}</div></div>`;
  let cribVis;
  if(ph==='show'&&S.show.step===2)cribVis=`<div class="empty">Counting</div>`;
  else if(S.crib.length)cribVis=`<div class="crib">${[0,4,8,12].map(o=>backHTML(`position:absolute;left:${o}px;top:${o}px`)).join('')}</div>`;
  else cribVis=`<div class="slots"><div class="empty"></div><div class="empty"></div></div>`;
- const crib=`<div class="spot"><span class="slabel">${cribName}</span>${cribVis}</div>`;
+ const crib=`<div class="spot"><span class="tag">${cribName}</span>${cribVis}</div>`;
  let centre;
  if(ph==='show'){
   const st=sst,what=st.crib?`${st.who==='p'?'Your':"Winnie's"} crib`:`${st.who==='p'?'Your':"Winnie's"} hand`;
   const last=st.shown?st.res.items[st.shown-1]:null;
-  const note=st.done?(st.res.total?`${st.res.total} ${st.res.total===1?'point':'points'}`:'Nothing to score'):last?`${last.label}: ${last.cards.map(short).join(' + ')}`:'Counting...';
-  centre=`<div class="centre"><div class="countbox" id="tally"><span class="label">${what}</span><b>${st.run}</b></div><span class="note">${note}</span></div>`;
+  const note=st.done?(st.res.total?`${st.res.total} ${st.res.total===1?'point':'points'}`:'Nothing to score'):last?`${last.label}: ${last.cards.map(short).join(' + ')}`:'Counting';
+  centre=`<div class="centre"><div class="panel countbox" id="tally"><span class="label">${what}</span><b>${st.run}</b><span class="note">${note}</span></div></div>`;
  }else if(ph==='over'&&S.finished){
   const lose=other(S.winner),ls=S.score[lose];const sk=ls<61?' A double skunk!':ls<91?' A skunk!':'';
-  centre=`<div class="centre"><div class="panel overlay"><span class="total">${S.winner==='p'?'You made it home first!':'Winnie made it home first'}</span><span class="label">${S.score.p} to ${S.score.c}.${sk}</span><button class="btn" data-act="new">Play again</button></div></div>`;
+  centre=`<div class="centre"><div class="panel overlay"><span class="total">${S.winner==='p'?'You made it home first!':'Winnie made it home first'}</span><span class="label">${S.score.p} to ${S.score.c}.${sk} Lane ${S.seed}.</span><button class="btn" data-act="new">Play again</button></div></div>`;
  }else{
   const cur=P?P.pile:[],n=cur.length;
   const pile=cur.map((x,i)=>{const k=n-1-i,step=k<=2?k:2,dy=hashf(x.card.id,'y')*6,rt=hashf(x.card.id,'r')*(k<=2?5:10);
-   const left=`calc(50% + var(--cw)*${(0.5-step*0.5).toFixed(2)} - var(--cw)/2 - ${k>2?(k-2)*6:0}px)`;const t=`translateY(${dy.toFixed(0)}px) rotate(${rt.toFixed(1)}deg)`;
+   const sp=scene.layout().portrait?.3:.5,left=`calc(50% + var(--cw)*${(sp-step*sp).toFixed(2)} - var(--cw)/2 - ${k>2?(k-2)*6:0}px)`;const t=`translateY(${dy.toFixed(0)}px) rotate(${rt.toFixed(1)}deg)`;
    return cardHTML(x.card,{cls:'pc'+(P.fresh===x.card.id?' new':''),extra:`left:${left};--t:${t};transform:${t};z-index:${i+1}`});}).join('');
   const spent=P&&P.spent?`<div class="spent"><div class="crib">${[0,3,6].map(o=>backHTML(`position:absolute;left:${o}px;top:${o}px`)).join('')}</div>${P.spent} played</div>`:'';
-  centre=`<div class="centre"><div class="countbox"><span class="label">Count</span><b>${P?P.count:0}</b></div><div class="pilewrap">${spent}<div class="pile">${pile}</div></div></div>`;
+  centre=`<div class="centre"><div class="panel countbox"><span class="label">Count</span><b>${P?P.count:0}</b></div><div class="pilewrap">${spent}<div class="pile">${pile}</div></div></div>`;
  }
- $id('surfaceUI').innerHTML=`${starter}${centre}${crib}`;
+ $id('surfaceUI').innerHTML=ph==='over'&&S.finished?centre:`${starter}${centre}${crib}`;
  // your hand and the prompt
  let prompt='';
- if(ph==='discard')prompt=`Choose 2 cards for ${S.dealer==='p'?'your':"Winnie's"} crib`;
+ if(ph==='discard')prompt=`Pick 2 for ${S.dealer==='p'?'your':"Winnie's"} crib`;
  else if(ph==='cut')prompt='Turning the starter';
- else if(ph==='show')prompt=sst.crib?`Counting ${sst.who==='p'?'your':"Winnie's"} crib`:`Counting ${sst.who==='p'?'your':"Winnie's"} hand`;
- else if(ph==='peg'){if(P.turn==='p'){prompt=canPlay('p')?'Your turn: play a card':P.hand.p.length?(P.go.p?'Waiting for Winnie':"You can't play. Say Go"):'Out of cards';}else prompt="Winnie's turn";}
+  else if(ph==='peg'){if(P.turn==='p'){prompt=canPlay('p')?'Your turn, play a card':P.hand.p.length?(P.go.p?'Waiting for Winnie':"You can't play, say Go"):'Out of cards';}else prompt="Winnie's turn";}
  else if(ph==='walking')prompt='Walking on...';
  let cards=[],opt={};
  if(ph==='discard')cards=S.hand.p.map(c=>[c,{btn:true,sel:S.sel.includes(c.id)}]);
@@ -199,21 +200,20 @@ function render(){
  else if(ph==='peg'){const mine=P.turn==='p';cards=P.hand.p.map(c=>{const ok=mine&&P.count+val(c)<=31;return [c,{btn:true,dis:!ok,dim:mine&&!ok}];});}
  else if(ph==='show'||ph==='over')cards=(S.kept?rowCards('p'):[]).map(c=>[c,{hl:hlIds.includes(c.id)}]);
  const n=cards.length;
- const fan=cards.map(([c,o],i)=>{const a=(i-(n-1)/2)*3.5,y=Math.abs(i-(n-1)/2)*4;return cardHTML(c,{...o,extra:`--fan:translateY(${y.toFixed(0)}px) rotate(${a.toFixed(1)}deg)`});}).join('');
+ const fan=cards.map(([c,o],i)=>{const k=scene.layout().portrait?1.8:3,a=(i-(n-1)/2)*k,y=Math.abs(i-(n-1)/2)*Math.abs(i-(n-1)/2)*(k-.5);return cardHTML(c,{...o,extra:`--fan:translateY(${y.toFixed(0)}px) rotate(${a.toFixed(1)}deg)`});}).join('');
  let acts='';
- if(ph==='discard')acts=`<button class="btn" data-act="discard" ${S.sel.length===2?'':'disabled'}>Send to crib${S.sel.length===2?'':` (${S.sel.length} of 2)`}</button>`;
+ if(ph==='discard')acts=`<button class="btn" data-act="discard" ${S.sel.length===2?'':'disabled'}>Send to crib</button>`;
  if(ph==='show')acts=sst.done?`<button class="btn" data-act="next">${S.show.step<2?'Next':'Walk on'}</button>`:`<button class="btn ghost" data-act="skip">Skip</button>`;
  if(ph==='peg'&&P.turn==='p'&&!canPlay('p')&&P.hand.p.length&&!P.go.p)acts=`<button class="btn" data-act="go">Go</button>`;
- $id('handUI').innerHTML=`<div class="bar"><span class="prompt">${prompt||'&nbsp;'}</span>${acts}</div><div class="fanhand">${fan}</div>`;
+ $id('barUI').innerHTML=`${prompt?`<span class="prompt">${prompt}</span>`:''}${acts}`;
+ $id('handUI').innerHTML=`<div class="fanhand">${fan}</div>`;
  // header
- const place=S.biome==='forest'?'A tree stump in the forest':'A picnic in the meadow';
- $id('roundInfo').textContent=`Round ${S.round} · ${S.dealer==='p'?'your':"Winnie's"} crib`;
- $id('placeInfo').textContent=place;
+ $id('roundInfo').textContent=`Round ${S.round}, ${S.dealer==='p'?'your':"Winnie's"} crib`;
  for(const w of ['p','c']){const gain=S.score[w]-S.from[w];$id('score-'+w).textContent=S.score[w];$id('gain-'+w).textContent=gain>0&&ph!=='walking'?`+${gain}`:'';}
  $id('log').innerHTML=S.log.map(t=>`<p>${t}</p>`).join('');
 }
 document.addEventListener('click',e=>{
- const b=e.target.closest('#surfaceUI button,#handUI button,#oppUI button');if(!b||b.disabled)return;
+ const b=e.target.closest('#surfaceUI button,#handUI button,#barUI button,#oppUI button');if(!b||b.disabled)return;
  const act=b.dataset.act;
  if(act==='discard')return confirmDiscard();
  if(act==='go')return sayGo();
@@ -225,6 +225,7 @@ document.addEventListener('click',e=>{
  else if(S.phase==='peg'&&S.peg.turn==='p'){const c=S.peg.hand.p.find(x=>x.id===id);if(c&&S.peg.count+val(c)<=31)play('p',c);}
 });
 document.getElementById('newGame').addEventListener('click',newGame);
+document.getElementById('newGameIcon').addEventListener('click',newGame);
 for(const [btn,dlg] of [['historyBtn','historyDlg'],['rulesBtn','rulesDlg']]){
  document.getElementById(btn).addEventListener('click',()=>{const d=document.getElementById(dlg);d.hidden=!d.hidden;});
 }

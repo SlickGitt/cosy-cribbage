@@ -35,27 +35,53 @@ export function createScene({ canvas, hud }) {
   let pos = { p: 0, c: 0 }, target = { p: 0, c: 0 }, stepAt = { p: 0, c: 0 }, walkDone = null;
   let deer = null, seenForest = false, bannerTimer = 0, speechTimer = 0, leaves = null;
 
-  // ---- layout: where the lane, the surface and the hand go on this screen
+  // ---- layout: where the lane, the surface, the hand and the action bar go on this screen.
+  // u is the UI scale (1 at 1440x900); card widths are worked out here so the
+  // canvas surface and the HTML laid over it always agree.
   function layout() {
     const W = window.innerWidth, H = window.innerHeight, portrait = H > W * 1.1;
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const u = portrait ? clamp(W / 400, 0.8, 1.4) : clamp(Math.min(W / 1440, H / 900), 0.8, 2);
     scale = portrait ? Math.max(2, W / 140) : Math.max(2.4, H / 225);
     aw = Math.ceil(W / scale); ah = Math.ceil(H / scale);
     canvas.width = aw; canvas.height = ah; canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
     leaves = makeLeaves(aw, ah, Math.round((aw * ah) / 2600), 9);
-    let free, surface, hand;
+    const seatH = Math.round(17 * scale);
+    const oppH = (cw) => 14 * u + 0.6 * cw * 1.42 + 10 * u;      // Winnie's row on the surface
+    const surfH = (cw) => oppH(cw) + 28 * u + cw * 1.42 + 18 * u; // + label, main row, padding
+    let free, surface, hand, bar, cw, ch, top;
     if (portrait) {
-      const strip = Math.round(H * 0.24);
-      free = { x: 0, y: 0, w: W, h: strip };
-      surface = { x: 10, y: strip + 58, w: W - 20, h: Math.round(H * 0.3) };
-      hand = { x: 0, y: surface.y + surface.h + 8, w: W, h: H - (surface.y + surface.h + 8) };
+      top = Math.round(124 * u);
+      const sw = W - Math.round(16 * u);
+      cw = Math.min((sw - 120 * u) / 3.9, 96 * u);
+      ch = Math.min((W - 12 * u) / 5.3, cw * 1.35);
+      const handH = ch * 1.42 * 0.92 + 26 * u, barH = 48 * u, sh = surfH(cw);
+      const stack = seatH + sh + 10 * u + barH + 6 * u + handH;
+      const strip = Math.max(top + 100 * u, H - stack);
+      free = { x: 0, y: top, w: W, h: strip - top };
+      surface = { x: Math.round((W - sw) / 2), y: Math.round(strip + seatH), w: sw, h: Math.round(sh) };
+      bar = { x: 0, y: Math.round(surface.y + sh + 10 * u), w: W, h: Math.round(barH) };
+      hand = { x: 0, y: bar.y + bar.h + Math.round(6 * u), w: W, h: H - (bar.y + bar.h + Math.round(6 * u)) };
     } else {
-      const fw = Math.max(260, Math.round(W * 0.3));
-      free = { x: 0, y: 0, w: fw, h: H };
-      surface = { x: fw + 20, y: 132, w: W - fw - 40, h: Math.round(H * 0.64) - 132 };
-      hand = { x: fw, y: surface.y + surface.h + 6, w: W - fw, h: H - (surface.y + surface.h + 6) };
+      top = Math.round(78 * u);
+      const fw = Math.max(Math.round(300 * u), Math.round(W * 0.3)), RW = W - fw, pad = 28 * u;
+      const barH = 52 * u;
+      const avail = H - top - seatH - barH - 30 * u;
+      cw = (avail - 120 * u) / (2.27 + 1.42 * 1.25 * 0.9);
+      cw = Math.min(cw, (RW - 2 * pad - 230 * u) / 5.4, 132 * u);
+      ch = cw * 1.25;
+      const sw = Math.min(RW - 2 * pad, cw * 5.8 + 250 * u), sh = surfH(cw);
+      const handH = ch * 1.42 * 0.9 + 30 * u;
+      const barY = H - handH - barH;
+      const room = barY - 14 * u - (top + seatH);
+      const sy = top + seatH + Math.max(0, (room - sh) * 0.6);
+      free = { x: 0, y: top, w: fw, h: H - top };
+      surface = { x: Math.round(fw + (RW - sw) / 2), y: Math.round(sy), w: Math.round(sw), h: Math.round(sh) };
+      bar = { x: fw, y: Math.round(barY), w: RW, h: Math.round(barH) };
+      hand = { x: fw, y: Math.round(barY + barH), w: RW, h: Math.round(H - barY - barH) };
     }
-    L = { W, H, portrait, free, surface, hand,
-      seats: [{ who: 'c', x: surface.x + surface.w * 0.32, y: surface.y + 4 }, { who: 'p', x: surface.x + surface.w * 0.68, y: surface.y + 4 }] };
+    L = { W, H, u, portrait, top, free, surface, hand, bar, cw, ch, oppH: oppH(cw), seatH,
+      seats: [{ who: 'c', x: surface.x + surface.w * 0.25, y: surface.y + 4 }, { who: 'p', x: surface.x + surface.w * 0.75, y: surface.y + 4 }] };
     return L;
   }
 
@@ -66,6 +92,14 @@ export function createScene({ canvas, hud }) {
   };
   const toScreen = (x, y) => [(x - camX) * scale, (y - camY) * scale];
   function place(el, x, y) { const [sx, sy] = toScreen(x, y); el.style.left = `${sx}px`; el.style.top = `${sy}px`; }
+  // Keep a tag inside the free area; if its lantern is out of view, pin it to the edge.
+  function placeIn(el, x, y, R) {
+    let [sx, sy] = toScreen(x, y);
+    const hw = el.offsetWidth / 2 + 8, th = el.offsetHeight + 8;
+    const cx = Math.max(R.x + hw, Math.min(R.x + R.w - hw, sx)), cy = Math.max(R.y + th, Math.min(R.y + R.h - 8, sy));
+    el.classList.toggle('edge', Math.abs(cx - sx) > 2 || Math.abs(cy - sy) > 2);
+    el.style.left = `${cx}px`; el.style.top = `${cy}px`;
+  }
 
   function showBanner(small, big, ms = 2200) {
     banner.querySelector('.small').textContent = small; banner.querySelector('.big').textContent = big;
@@ -75,7 +109,7 @@ export function createScene({ canvas, hud }) {
   function say(text, ms = 2400) {
     if (mode !== 'stop' || !L) return;
     speech.textContent = text; speech.hidden = false;
-    const s = L.seats[0]; speech.style.left = `${s.x - 20}px`; speech.style.top = `${s.y - 74}px`;
+    const s = L.seats[0]; speech.style.left = `${s.x}px`; speech.style.top = `${s.y - L.seatH - 6}px`;
     clearTimeout(speechTimer); speechTimer = setTimeout(() => { speech.hidden = true; }, ms);
   }
 
@@ -98,15 +132,18 @@ export function createScene({ canvas, hud }) {
   }
 
   function drawSurface(biome) {
-    const s = L.surface, x = s.x / scale, y = s.y / scale, w = s.w / scale, h = s.h / scale;
+    const s = L.surface, x = Math.round(s.x / scale), y = Math.round(s.y / scale), w = Math.round(s.w / scale), h = Math.round(s.h / scale);
     if (biome === 'forest') {
-      stumpTable(c, x + w / 2, y + h / 2 - 3, Math.round(w / 2 - 3), Math.round(h / 2 - 6));
+      stumpTable(c, x, y, w, h);
     } else {
-      gingham(c, Math.round(x), Math.round(y), Math.round(w), Math.round(h));
-      const bx = x + w - 10, by = y + h - 4;
-      rect(c, bx, by - 6, 16, 12, '#B07A3E'); for (let i = 0; i < 16; i += 3) rect(c, bx + i, by - 6, 1, 12, '#8A5A2A');
-      rect(c, bx + 2, by - 12, 12, 2, '#8A5A2A'); rect(c, bx + 2, by - 12, 2, 6, '#8A5A2A'); rect(c, bx + 12, by - 12, 2, 6, '#8A5A2A');
-      rect(c, x + 4, y + h + 3, 4, 4, '#D0302A'); rect(c, x + 10, y + h + 4, 4, 4, '#D0302A');
+      gingham(c, x, y, w, h);
+      // a basket and two apples in the empty corner beside you
+      const bx = Math.round(x + w * 0.9 - 8), by = y + 6;
+      rect(c, bx - 1, by + 13, 18, 2, 'rgba(20,10,10,0.25)');
+      rect(c, bx, by + 1, 16, 12, '#B07A3E'); for (let i = 0; i < 16; i += 3) rect(c, bx + i, by + 1, 1, 12, '#8A5A2A');
+      rect(c, bx, by + 1, 16, 1, '#8A5A2A');
+      rect(c, bx + 2, by - 5, 12, 2, '#8A5A2A'); rect(c, bx + 2, by - 5, 2, 6, '#8A5A2A'); rect(c, bx + 12, by - 5, 2, 6, '#8A5A2A');
+      rect(c, bx - 9, by + 8, 4, 4, '#D0302A'); rect(c, bx - 8, by + 7, 1, 1, '#4E8A3A'); rect(c, bx - 5, by + 10, 4, 4, '#C8402F');
     }
     for (const st of L.seats) seated(c, st.who, st.x / scale, st.y / scale);
   }
@@ -134,9 +171,15 @@ export function createScene({ canvas, hud }) {
     // camera
     let fx, fy, free;
     if (mode === 'stop') {
-      const ps = [stop.from.p, stop.from.c, banked.p, banked.c].map(holeXY);
-      fx = ps.reduce((a, p) => a + p[0], 0) / 4; fy = ps.reduce((a, p) => a + p[1], 0) / 4;
       free = L.free;
+      // Frame the lanterns first, then where the round started, if it all fits.
+      const fwA = free.w / scale - 40, fhA = free.h / scale - 50;
+      const box = (ps) => { const xs = ps.map((p) => p[0]), ys = ps.map((p) => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; };
+      const lan = [banked.p, banked.c].map(holeXY), all = [...lan, ...[stop.from.p, stop.from.c].map(holeXY)];
+      let b = box(all);
+      if (b[2] - b[0] > fwA || b[3] - b[1] > fhA) b = box(lan);
+      if (b[2] - b[0] > fwA || b[3] - b[1] > fhA) b = box([lan[0]]);
+      fx = (b[0] + b[2]) / 2; fy = (b[1] + b[3]) / 2 - 6;
     } else {
       const [px, py] = holeXY(pos.p), [cx, cy] = holeXY(pos.c);
       if (Math.abs(py - cy) < ah * 0.6) { fx = (px + cx) / 2; fy = (py + cy) / 2; }
@@ -165,11 +208,11 @@ export function createScene({ canvas, hud }) {
       const side = w === 'p' ? 9 : -9;
       lantern(c, lx + side - ix, ly + 2 - iy, w === 'p' ? '#F2B63C' : '#B07AC8');
       ltags[w].textContent = `${w === 'p' ? 'You' : 'Winnie'} to ${banked[w]}`;
-      place(ltags[w], lx + side, ly - 14);
+      placeIn(ltags[w], lx + side, ly - 14, L.free);
     }
     if (deer) {
       if (t > deer.until) { deer = null; bubble.hidden = true; }
-      else { A.deer(c, deer.x - ix, deer.y - iy); bubble.hidden = false; place(bubble, deer.x + 6, deer.y - 12); }
+      else { A.deer(c, deer.x - ix, deer.y - iy); bubble.hidden = false; placeIn(bubble, deer.x + 6, deer.y - 12, mode === 'stop' ? L.free : { x: 0, y: L.top, w: L.W, h: L.H - L.top }); }
     }
     // walkers on the lane while walking
     for (const w of ['c', 'p']) {
@@ -185,8 +228,11 @@ export function createScene({ canvas, hud }) {
     if (surfaceAlpha > 0.02) {
       c.save(); c.globalAlpha = surfaceAlpha;
       const s = L.surface;
-      if (!L.portrait) { c.fillStyle = 'rgba(20,12,18,0.18)'; c.fillRect(L.free.w / scale, 0, aw, ah); }
-      else { c.fillStyle = 'rgba(20,12,18,0.18)'; c.fillRect(0, L.free.h / scale, aw, ah); }
+      // soften the scenery behind the play area, fading in from the lane view
+      const e = L.portrait ? (L.free.y + L.free.h) / scale : L.free.w / scale, f = 24;
+      const g = L.portrait ? c.createLinearGradient(0, e - f, 0, e + f) : c.createLinearGradient(e - f, 0, e + f, 0);
+      g.addColorStop(0, 'rgba(20,12,18,0)'); g.addColorStop(1, 'rgba(20,12,18,0.2)');
+      c.fillStyle = g; c.fillRect(0, 0, aw, ah);
       drawSurface(stop.biome);
       c.restore();
     }

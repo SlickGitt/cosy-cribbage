@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cosy Cribbage</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap">
+<link rel="preload" href="fonts/jersey-15.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="styles/main.css">
 </head>
 <body>
@@ -14,27 +14,29 @@
 <div id="hud" class="lane-hud"></div>
 
 <div class="topbar">
- <div class="titlechip"><span class="title">Cosy Cribbage</span><span class="seed" id="seed"></span></div>
- <div class="roundchip"><span class="r" id="roundInfo"></span><span class="s" id="placeInfo"></span></div>
- <div class="topright">
-  <div class="scores"><div class="chip you">You <b id="score-p">0</b><small id="gain-p"></small></div><div class="chip">Winnie <b id="score-c">0</b><small id="gain-c"></small></div></div>
-  <div class="controls">
-   <button class="ibtn" id="musicBtn" aria-pressed="true" title="Music" aria-label="Music"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M3 0h5v1H3zM3 0h1v6H3zM7 0h1v5H7zM1 5h3v3H1zM5 4h3v3H5z" fill="currentColor"/></svg></button>
-   <button class="ibtn" id="soundBtn" aria-pressed="true" title="Sound effects" aria-label="Sound effects"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M0 3h2v2H0zM2 2h1v4H2zM3 1h1v6H3zM5 2h1v1H5zM6 1h1v1H6zM5 5h1v1H5zM6 6h1v1H6zM6 3h2v2H6z" fill="currentColor"/></svg></button>
-   <button class="ibtn" id="historyBtn" title="What happened" aria-label="What happened"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M0 1h8v1H0zM0 3h8v1H0zM0 5h8v1H0zM0 7h5v1H0z" fill="currentColor"/></svg></button>
-   <button class="ibtn" id="rulesBtn" title="How to play" aria-label="How to play"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M2 0h4v1H2zM6 1h1v3H6zM4 4h2v1H4zM3 5h2v1H3zM3 7h2v1H3zM1 1h1v1H1z" fill="currentColor"/></svg></button>
-   <button class="btn small" id="newGame">New game</button>
-  </div>
+ <div class="panel titlechip"><span class="title">Cosy Cribbage</span><span class="sub"><span id="roundInfo"></span><span class="seed" id="seed"></span></span></div>
+ <div class="panel scores">
+  <div class="score you"><i class="pip"></i><span class="who">You</span><b id="score-p">0</b><small id="gain-p"></small></div>
+  <div class="score them"><i class="pip"></i><span class="who">Winnie</span><b id="score-c">0</b><small id="gain-c"></small></div>
+ </div>
+ <div class="controls">
+  <button class="ibtn" id="musicBtn" aria-pressed="true" title="Music" aria-label="Music"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M3 0h5v1H3zM3 0h1v6H3zM7 0h1v5H7zM1 5h3v3H1zM5 4h3v3H5z" fill="currentColor"/></svg></button>
+  <button class="ibtn" id="soundBtn" aria-pressed="true" title="Sound effects" aria-label="Sound effects"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M0 3h2v2H0zM2 2h1v4H2zM3 1h1v6H3zM5 2h1v1H5zM6 1h1v1H6zM5 5h1v1H5zM6 6h1v1H6zM6 3h2v2H6z" fill="currentColor"/></svg></button>
+  <button class="ibtn" id="historyBtn" title="What happened" aria-label="What happened"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M0 1h8v1H0zM0 3h8v1H0zM0 5h8v1H0zM0 7h5v1H0z" fill="currentColor"/></svg></button>
+  <button class="ibtn" id="rulesBtn" title="How to play" aria-label="How to play"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M2 0h4v1H2zM6 1h1v3H6zM4 4h2v1H4zM3 5h2v1H3zM3 7h2v1H3zM1 1h1v1H1z" fill="currentColor"/></svg></button>
+  <button class="ibtn" id="newGameIcon" title="New game" aria-label="New game"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M2 0h4v1H2zM1 1h1v1H1zM6 1h1v1H6zM0 2h1v4H0zM7 2h1v2H7zM5 3h3v1H5zM1 6h1v1H1zM6 5h1v2H6zM2 7h4v1H2z" fill="currentColor"/></svg></button>
+  <button class="btn small" id="newGame">New game</button>
  </div>
 </div>
 
 <div id="oppUI" class="opp-ui"></div>
 <div id="surfaceUI" class="surface-ui"></div>
+<div id="barUI" class="bar-ui"></div>
 <div id="handUI" class="hand-ui"></div>
 <div id="fx" class="fx stage"></div>
 
-<div class="dialog" id="historyDlg" hidden><div class="dlg-head"><h2>What happened</h2><button class="ibtn" data-close aria-label="Close">x</button></div><div id="log" class="log"></div></div>
-<div class="dialog" id="rulesDlg" hidden><div class="dlg-head"><h2>How to play</h2><button class="ibtn" data-close aria-label="Close">x</button></div>
+<div class="dialog" id="historyDlg" hidden><div class="dlg-head"><h2>What happened</h2><button class="ibtn" data-close aria-label="Close"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M1 1h1v1H1zM2 2h1v1H2zM3 3h2v2H3zM5 2h1v1H5zM6 1h1v1H6zM2 5h1v1H2zM1 6h1v1H1zM5 5h1v1H5zM6 6h1v1H6z" fill="currentColor"/></svg></button></div><div id="log" class="log"></div></div>
+<div class="dialog" id="rulesDlg" hidden><div class="dlg-head"><h2>How to play</h2><button class="ibtn" data-close aria-label="Close"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M1 1h1v1H1zM2 2h1v1H2zM3 3h2v2H3zM5 2h1v1H5zM6 1h1v1H6zM2 5h1v1H2zM1 6h1v1H1zM5 5h1v1H5zM6 6h1v1H6z" fill="currentColor"/></svg></button></div>
  <ul>
    <li>Each round you're dealt 6 cards. Pick 2 for the crib, which belongs to the dealer.</li>
    <li>A starter card is turned up. A jack scores the dealer 2 (his heels).</li>
