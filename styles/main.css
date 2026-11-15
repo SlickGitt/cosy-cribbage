@@ -137,7 +137,7 @@ body.finished .surface-ui .panel{pointer-events:auto}
 .pop{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;padding:.15rem .6rem;background:var(--lamp);color:var(--ink);border:var(--bw) solid var(--ink);border-radius:var(--r);box-shadow:var(--lift);font-size:1.65rem;animation:pop 1.6s forwards}
 .pop.c{background:var(--lilac)}
 @keyframes pop{0%{opacity:0;transform:translate(-50%,-50%) scale(.6)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}22%{transform:translate(-50%,-50%) scale(1)}75%{opacity:1;transform:translate(-50%,-110%)}100%{opacity:0;transform:translate(-50%,-160%)}}
-.dialog{position:fixed;z-index:9;right:.75rem;top:4.6rem;width:min(28rem,calc(100vw - 1.5rem));max-height:calc(100vh - 6rem);overflow:auto;padding:.8rem 1rem 1rem;font-size:1.22rem;line-height:1.4;color:var(--cream)}
+.dialog{position:fixed;z-index:9;right:.75rem;top:4.6rem;background:var(--plum);width:min(28rem,calc(100vw - 1.5rem));max-height:calc(100vh - 6rem);overflow:auto;padding:.8rem 1rem 1rem;font-size:1.22rem;line-height:1.4;color:var(--cream)}
 .dlg-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.3rem}
 .dialog h2{margin:0;font-size:1.59rem;color:var(--lamp)}
 .dialog ul{padding-left:1.1rem;margin:.4rem 0 0;display:flex;flex-direction:column;gap:.45rem}
@@ -302,3 +302,5 @@ body.portrait .logo{font-size:2.7rem}
 .cutbtn:focus-visible{outline:3px solid #9AD0FF;outline-offset:2px;border-radius:.4rem}
 .cutslot{--w:var(--cw)}
 .cutspot{min-height:calc(var(--cw)*1.42 + 12px);display:flex;align-items:flex-end}
+
+body.on-title .dialog{top:50%;right:auto;left:50%;transform:translate(-50%,-50%)}
