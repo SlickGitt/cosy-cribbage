@@ -5,8 +5,10 @@ A cosy, 16-bit style online cribbage game. Play against Winnie (the computer) or
 ## Status
 Vertical slice:
 - Full cribbage rules against Winnie, the computer
-- Full-screen layout with no scrolling: the lane fills the screen and the card table sits in a tray over it (right side on desktop, bottom on phones)
-- Walkers step along the lane live, the moment points are scored
+- Full-screen layout with no scrolling
+- Rest stops: each round is played beside the lane on a surface that matches the biome (picnic blanket in the meadow, tree stump in the forest), with you and Winnie seated at it
+- Points scored light lanterns further along the lane; at the end of the round you both walk to them
+- Winnie reacts in speech bubbles
 - Lane generator: one seed makes a new lane each game, with meadow and forest stretches
 - One moment (a deer when you first enter the forest), falling leaves, synthesised sound and a lofi loop
 
@@ -27,7 +29,8 @@ then open http://localhost:8000.
 - `src/pixel.js` seeded random numbers and pixel drawing helpers
 - `src/art.js` code-drawn scenery, animals and walker sprites
 - `src/lane.js` lane generator and biome rendering
-- `src/laneview.js` the live lane behind the card tray
+- `src/scene.js` the full-screen scene: rest stop mode and walk mode
+- `src/reststop.js` rest stop surfaces, seated walkers and lanterns
 - `src/weather.js` falling leaves
 - `src/sound.js` synthesised effects and music
 

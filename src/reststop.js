@@ -11,14 +11,14 @@ const GROUND = {
 const PATH = { meadow: ['#7A5634', '#C49464', '#D6A874'], forest: ['#4A3420', '#8A6440', '#9E7650'] };
 
 // Seated walker: head and body rows from the standing sprite, legs folded.
-function seated(c, who, x, y) {
+export function seated(c, who, x, y) {
   const w = A.WALKERS[who];
   const rows = [...w.rows.slice(0, 15), '.oLLLLLLo.', 'oBBLooLBBo'];
   oval(c, x, y, 6, 2, 'rgba(20,10,10,0.28)');
   sprite(c, rows, w.pal, x - 5, y - rows.length + 1);
 }
 
-function lantern(c, x, y, col) {
+export function lantern(c, x, y, col) {
   const g = c.createRadialGradient(x, y - 9, 1, x, y - 9, 14);
   g.addColorStop(0, 'rgba(255,212,138,0.7)'); g.addColorStop(1, 'rgba(255,212,138,0)');
   c.fillStyle = g; c.fillRect(x - 14, y - 23, 28, 28);
@@ -27,7 +27,7 @@ function lantern(c, x, y, col) {
   for (let i = 0; i < 4; i++) rect(c, x + 1, y - 6 + i, 5 - i, 1, col);
 }
 
-function gingham(c, x, y, w, h) {
+export function gingham(c, x, y, w, h) {
   rect(c, x + 3, y + 3, w, h, 'rgba(20,10,10,0.3)');
   const q = 10;
   for (let j = 0; j < h; j += q) for (let i = 0; i < w; i += q) {
@@ -38,7 +38,7 @@ function gingham(c, x, y, w, h) {
   for (let i = 0; i < w; i += 3) { rect(c, x + i, y - 2, 1, 2, '#F5EBDA'); rect(c, x + i + 1, y + h, 1, 2, '#F5EBDA'); }
 }
 
-function stumpTable(c, cx, cy, rx, ry) {
+export function stumpTable(c, cx, cy, rx, ry) {
   oval(c, cx + 4, cy + ry + 6, rx + 6, 6, 'rgba(20,10,10,0.3)');
   for (let k = 0; k < 10; k++) oval(c, cx, cy + k, rx + 3, ry + 3, '#5A3420');
   for (let i = -rx; i <= rx; i += 7) rect(c, cx + i, cy + ry - 2, 2, 12, '#4A2A18');

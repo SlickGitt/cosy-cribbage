@@ -3,26 +3,28 @@ import { SUITS, RL, RN, NAME, val, other, byRank, cardName, short, fullDeck, shu
 import { scoreHand, pegScore } from './scoring.js';
 import { compDiscard, compPeg } from './ai.js';
 import { generateLane } from './lane.js';
-import { createLaneView } from './laneview.js';
+import { createScene } from './scene.js';
 import { initAudio, sfx, setMusic, setSound, settings } from './sound.js';
 
-const tray = document.getElementById('tray');
-function freeRect() {
-  const t = tray.getBoundingClientRect(), W = window.innerWidth, H = window.innerHeight;
-  return t.left > W * 0.3 ? { x: 0, y: 0, w: t.left, h: H } : { x: 0, y: 0, w: W, h: Math.max(80, t.top) };
-}
-const laneView = createLaneView({ canvas: document.getElementById('lane'), hud: document.getElementById('laneHud'), freeRect });
+const scene = createScene({ canvas: document.getElementById('scene'), hud: document.getElementById('hud') });
 let lane = null;
+const $id = (id) => document.getElementById(id);
 
-// Size the cards so the whole tray fits the screen without scrolling.
-function fitCards() {
-  const T = document.getElementById('table'), r = T.getBoundingClientRect();
-  const byH = (r.height - 200) / 3.9, byW = (r.width - 70) / 6.1;
-  const cw = Math.max(40, Math.min(124, byH, byW));
-  tray.style.setProperty('--cw', cw.toFixed(1) + 'px');
-  laneView.relayout();
+// Place the card areas over the scene and size the cards to fit.
+function placeUI() {
+  const L = scene.layout(), s = L.surface, h = L.hand;
+  const su = $id('surfaceUI'), hu = $id('handUI');
+  Object.assign(su.style, { left: s.x + 'px', top: s.y + 'px', width: s.w + 'px', height: s.h + 'px' });
+  Object.assign(hu.style, { left: h.x + 'px', top: h.y + 'px', width: h.w + 'px', height: h.h + 'px' });
+  const seat = L.seats[0];
+  Object.assign($id('oppUI').style, { left: (seat.x - 24) + 'px', top: (seat.y - 8) + 'px' });
+  const cw = Math.max(38, Math.min(112, (s.h - 64) / 1.42, s.w / 6.4));
+  const ch = Math.max(44, Math.min(150, (h.h - 90) / 1.42, h.w / (L.portrait ? 5.3 : 6.9)));
+  document.body.style.setProperty('--cw', cw.toFixed(1) + 'px');
+  document.body.style.setProperty('--ch', ch.toFixed(1) + 'px');
+  document.body.style.setProperty('--co', (cw * 0.62).toFixed(1) + 'px');
 }
-window.addEventListener('resize', fitCards);
+window.addEventListener('resize', () => { scene.relayout(); placeUI(); if (S) render(); });
 
 let S, gen = 0;
 const later = (fn, ms) => { const g = gen; setTimeout(() => { if (g === gen) fn(); }, ms); };
@@ -33,8 +35,10 @@ function addPts(who,pts,reason){
  S.score[who]=Math.min(121,S.score[who]+pts);
  log(`${NAME[who]}: ${reason} for ${pts}`);
  sfx('score',pts);
- laneView.moveTo(who,S.score[who]);
- if(S.score[who]>=121){S.phase='over';S.winner=who;log(`${NAME[who]} ${who==='p'?'reach':'reaches'} home at 121`);render();return true;}
+ scene.setBanked(S.score);scene.react(reason,who);
+ if(S.score[who]>=121){S.phase='over';S.winner=who;S.finished=false;log(`${NAME[who]} ${who==='p'?'reach':'reaches'} home at 121`);render();
+  later(()=>{document.body.classList.add('walking');scene.walk(S.score).then(()=>{if(S.phase!=='over')return;S.finished=true;document.body.classList.remove('walking');document.body.classList.add('finished');render();});},1300);
+  return true;}
  return false;
 }
 function pop(text,sel,who,delay=0){
@@ -48,9 +52,10 @@ function pop(text,sel,who,delay=0){
   document.getElementById('fx').appendChild(d);setTimeout(()=>d.remove(),1700);
  });},delay);
 }
-function newGame(){gen++;const seed=Math.floor(Math.random()*9000)+1000;lane=generateLane(seed);laneView.reset(lane);document.getElementById('seed').textContent=`Lane ${seed}`;S={seed,seenForest:false,from:{p:0,c:0},score:{p:0,c:0},disp:{p:0,c:0},dealer:Math.random()<.5?'p':'c',log:[],round:0,phase:'',winner:null};log(`${NAME[S.dealer]} cut the lower card and ${S.dealer==='p'?'deal':'deals'} first`);startRound();}
+function newGame(){gen++;const seed=Math.floor(Math.random()*9000)+1000;lane=generateLane(seed);scene.reset(lane);document.body.classList.remove('walking','finished');document.getElementById('seed').textContent=`Lane ${seed}`;S={seed,seenForest:false,from:{p:0,c:0},score:{p:0,c:0},disp:{p:0,c:0},dealer:Math.random()<.5?'p':'c',log:[],round:0,phase:'',winner:null};log(`${NAME[S.dealer]} cut the lower card and ${S.dealer==='p'?'deal':'deals'} first`);startRound();}
 function startRound(){
- S.round++;S.from={...S.score};const d=shuffled();
+ S.round++;S.from={...S.score};S.biome=scene.setStop(S.score);const d=shuffled();
+ later(()=>{if(S.phase==='discard')scene.say(['Hmm, let me think...','Now then...','Ooh, decisions.'][S.round%3]);},700);
  S.deck=d;S.hand={p:d.splice(0,6).sort(byRank),c:d.splice(0,6).sort(byRank)};
  S.crib=[];S.starter=null;S.sel=[];S.peg=null;S.show=null;S.phase='discard';
  log(`Round ${S.round}. ${S.dealer==='p'?'Your':"Winnie's"} crib`);
@@ -100,7 +105,7 @@ function advance(){
  if(canPlay(t)){render();if(t==='c'&&!P.cpu){P.cpu=true;later(()=>{P.cpu=false;if(S.phase==='peg'&&S.peg===P&&P.turn==='c'&&canPlay('c'))play('c',compPeg(P));},900);}return;}
  if(P.hand[t].length&&!P.go[t]){
   if(t==='p'){render();return;}
-  P.go.c=true;sfx('go');log('Winnie says Go');render();later(()=>resolveStuck('c'),900);return;
+  P.go.c=true;sfx('go');log('Winnie says Go');scene.say('Go, dear.');render();later(()=>resolveStuck('c'),900);return;
  }
  resolveStuck(t);
 }
@@ -113,7 +118,9 @@ function startShow(){
 function nextShow(){
  const sh=S.show;sh.step++;
  if(sh.step>2){
-  S.dealer=other(S.dealer);startRound();return;}
+  S.phase='walking';document.body.classList.add('walking');render();
+  scene.walk(S.score).then(()=>{if(S.phase!=='walking')return;document.body.classList.remove('walking');S.dealer=other(S.dealer);startRound();});
+  return;}
  const st=sh.steps[sh.step];st.res=scoreHand(st.cards,S.starter,st.crib);st.shown=0;st.run=0;st.done=false;
  render();
  if(!st.res.items.length){st.done=true;log(`${NAME[st.who]}: nothing in ${st.crib?'the crib':'hand'}`);later(render,300);return;}
@@ -143,65 +150,70 @@ function cardHTML(c,{btn=false,sel=false,dim=false,dis=false,hl=false,extra='',c
 }
 const backHTML=(st='')=>`<div class="back" style="${st}" aria-hidden="true"><svg viewBox="0 0 9 10"><use href="#s-leaf"></use></svg></div>`;
 function render(){
- const T=document.getElementById('table'),P=S.peg,ph=S.phase;
- const cribName=S.dealer==='p'?'Your crib':"Winnie's crib";
+ const P=S.peg,ph=S.phase;
  const sst=ph==='show'?S.show.steps[S.show.step]:null;
  const hlIds=sst&&sst.shown&&!sst.done?sst.res.items[sst.shown-1].cards.map(c=>c.id):[];
  const rowCards=w=>(sst&&sst.crib&&sst.who===w?S.crib:S.kept[w]);
  const active=w=>!sst||sst.who===w;
- let oppCards;
- if(ph==='show'||(ph==='over'&&S.show))oppCards=`<div class="row" style="gap:8px;${active('c')?'':'opacity:.55'}">${rowCards('c').map(c=>cardHTML(c,{hl:hlIds.includes(c.id)})).join('')}</div>`;
- else{const n=ph==='discard'?6:ph==='cut'?4:P?P.hand.c.length:4;oppCards=`<div class="fan">${Array.from({length:n},()=>backHTML()).join('')}</div>`;}
- let status='';
- if(ph==='discard')status='is choosing';else if(ph==='peg'&&P.turn==='c')status='is thinking';else if(ph==='peg'&&P.go.c)status='said Go';
- const top=`<div class="row opp"><span class="tag">${sst&&sst.crib&&sst.who==='c'?"Winnie's crib":'Winnie'} ${status?`<span style="font-weight:700;color:#5A4A44">${status}</span>`:''}</span>${oppCards}</div>`;
- const left=`<div class="stack"><span class="label">Starter</span><div id="starter">${S.starter?cardHTML(S.starter,{hl:hlIds.includes(S.starter.id)}):backHTML()}</div></div>`;
+ // Winnie's cards, held beside her
+ let opp;
+ if(ph==='show'||(ph==='over'&&S.show&&S.kept))opp=`<div class="held small${active('c')?'':' faded'}">${rowCards('c').map(c=>cardHTML(c,{hl:hlIds.includes(c.id)})).join('')}</div>`;
+ else{const n=ph==='discard'?6:ph==='cut'?4:P?P.hand.c.length:0;opp=`<div class="fan small">${Array.from({length:n},()=>backHTML()).join('')}</div>`;}
+ $id('oppUI').innerHTML=opp;
+ // the surface: starter, pile and crib
+ const cribName=S.dealer==='p'?'Your crib':"Winnie's crib";
+ const starter=`<div class="spot"><span class="slabel">${S.starter?'Starter':'Deck'}</span><div id="starter">${S.starter?cardHTML(S.starter,{hl:hlIds.includes(S.starter.id)}):`<div class="crib">${[0,3,6].map(o=>backHTML(`position:absolute;left:${o}px;top:${o}px`)).join('')}</div>`}</div></div>`;
  let cribVis;
- if(ph==='show'&&S.show.step===2)cribVis=`<div class="crib">${[0,4,8,12].map(o=>backHTML(`position:absolute;left:${o}px;top:${o}px;opacity:.35`)).join('')}</div>`;
+ if(ph==='show'&&S.show.step===2)cribVis=`<div class="empty">Counting</div>`;
  else if(S.crib.length)cribVis=`<div class="crib">${[0,4,8,12].map(o=>backHTML(`position:absolute;left:${o}px;top:${o}px`)).join('')}</div>`;
- else cribVis=`<div class="empty">Empty</div>`;
- const right=`<div class="stack"><span class="label">${cribName}</span>${cribVis}</div>`;
- let centre='';
+ else cribVis=`<div class="slots"><div class="empty"></div><div class="empty"></div></div>`;
+ const crib=`<div class="spot"><span class="slabel">${cribName}</span>${cribVis}</div>`;
+ let centre;
  if(ph==='show'){
   const st=sst,what=st.crib?`${st.who==='p'?'Your':"Winnie's"} crib`:`${st.who==='p'?'Your':"Winnie's"} hand`;
   const last=st.shown?st.res.items[st.shown-1]:null;
   const note=st.done?(st.res.total?`${st.res.total} ${st.res.total===1?'point':'points'}`:'Nothing to score'):last?`${last.label}: ${last.cards.map(short).join(' + ')}`:'Counting...';
-  centre=`<div class="play"><div class="countbox" id="tally"><span class="label">${what}</span><b>${st.run}</b></div><span class="sub" style="font-size:17px">${note}</span></div>`;
- }else if(ph==='over'){
+  centre=`<div class="centre"><div class="countbox" id="tally"><span class="label">${what}</span><b>${st.run}</b></div><span class="note">${note}</span></div>`;
+ }else if(ph==='over'&&S.finished){
   const lose=other(S.winner),ls=S.score[lose];const sk=ls<61?' A double skunk!':ls<91?' A skunk!':'';
-  centre=`<div class="panel overlay"><span class="total">${S.winner==='p'?'You win!':'Winnie wins'}</span><span class="label">${S.score.p} to ${S.score.c}.${sk}</span><button class="btn" data-act="new">Play again</button></div>`;
+  centre=`<div class="centre"><div class="panel overlay"><span class="total">${S.winner==='p'?'You made it home first!':'Winnie made it home first'}</span><span class="label">${S.score.p} to ${S.score.c}.${sk}</span><button class="btn" data-act="new">Play again</button></div></div>`;
  }else{
   const cur=P?P.pile:[],n=cur.length;
   const pile=cur.map((x,i)=>{const k=n-1-i,step=k<=2?k:2,dy=hashf(x.card.id,'y')*6,rt=hashf(x.card.id,'r')*(k<=2?5:10);
    const left=`calc(50% + var(--cw)*${(0.5-step*0.5).toFixed(2)} - var(--cw)/2 - ${k>2?(k-2)*6:0}px)`;const t=`translateY(${dy.toFixed(0)}px) rotate(${rt.toFixed(1)}deg)`;
    return cardHTML(x.card,{cls:'pc'+(P.fresh===x.card.id?' new':''),extra:`left:${left};--t:${t};transform:${t};z-index:${i+1}`});}).join('');
   const spent=P&&P.spent?`<div class="spent"><div class="crib">${[0,3,6].map(o=>backHTML(`position:absolute;left:${o}px;top:${o}px`)).join('')}</div>${P.spent} played</div>`:'';
-  const top2=n?(cur[n-1].who==='p'?'You played last':'Winnie played last'):'';
-  centre=`<div class="play"><div class="countbox"><span class="label">Count</span><b>${P?P.count:0}</b></div><div class="pilewrap">${spent}<div class="pile">${pile}</div></div><span class="sub">${top2}</span></div>`;
+  centre=`<div class="centre"><div class="countbox"><span class="label">Count</span><b>${P?P.count:0}</b></div><div class="pilewrap">${spent}<div class="pile">${pile}</div></div></div>`;
  }
- const mid=`<div class="mid">${left}${centre}${right}</div>`;
+ $id('surfaceUI').innerHTML=`${starter}${centre}${crib}`;
+ // your hand and the prompt
  let prompt='';
  if(ph==='discard')prompt=`Choose 2 cards for ${S.dealer==='p'?'your':"Winnie's"} crib`;
  else if(ph==='cut')prompt='Turning the starter';
  else if(ph==='show')prompt=sst.crib?`Counting ${sst.who==='p'?'your':"Winnie's"} crib`:`Counting ${sst.who==='p'?'your':"Winnie's"} hand`;
  else if(ph==='peg'){if(P.turn==='p'){prompt=canPlay('p')?'Your turn: play a card':P.hand.p.length?(P.go.p?'Waiting for Winnie':"You can't play. Say Go"):'Out of cards';}else prompt="Winnie's turn";}
- let hand='';
- if(ph==='discard')hand=S.hand.p.map(c=>cardHTML(c,{btn:true,sel:S.sel.includes(c.id)})).join('');
- else if(ph==='cut')hand=S.hand.p.map(c=>cardHTML(c)).join('');
- else if(ph==='peg'){const mine=P.turn==='p';hand=P.hand.p.map(c=>{const ok=mine&&P.count+val(c)<=31;return cardHTML(c,{btn:true,dis:!ok,dim:mine&&!ok});}).join('');}
- else if(ph==='show'||ph==='over')hand=`<div class="row" style="gap:12px;${active('p')?'':'opacity:.55'}">${(S.kept?rowCards('p'):[]).map(c=>cardHTML(c,{hl:hlIds.includes(c.id)})).join('')}</div>`;
+ else if(ph==='walking')prompt='Walking on...';
+ let cards=[],opt={};
+ if(ph==='discard')cards=S.hand.p.map(c=>[c,{btn:true,sel:S.sel.includes(c.id)}]);
+ else if(ph==='cut')cards=S.hand.p.map(c=>[c,{}]);
+ else if(ph==='peg'){const mine=P.turn==='p';cards=P.hand.p.map(c=>{const ok=mine&&P.count+val(c)<=31;return [c,{btn:true,dis:!ok,dim:mine&&!ok}];});}
+ else if(ph==='show'||ph==='over')cards=(S.kept?rowCards('p'):[]).map(c=>[c,{hl:hlIds.includes(c.id)}]);
+ const n=cards.length;
+ const fan=cards.map(([c,o],i)=>{const a=(i-(n-1)/2)*3.5,y=Math.abs(i-(n-1)/2)*4;return cardHTML(c,{...o,extra:`--fan:translateY(${y.toFixed(0)}px) rotate(${a.toFixed(1)}deg)`});}).join('');
  let acts='';
  if(ph==='discard')acts=`<button class="btn" data-act="discard" ${S.sel.length===2?'':'disabled'}>Send to crib${S.sel.length===2?'':` (${S.sel.length} of 2)`}</button>`;
- if(ph==='show')acts=sst.done?`<button class="btn" data-act="next">${S.show.step<2?'Next':'Next round'}</button>`:`<button class="btn ghost" data-act="skip">Skip</button>`;
+ if(ph==='show')acts=sst.done?`<button class="btn" data-act="next">${S.show.step<2?'Next':'Walk on'}</button>`:`<button class="btn ghost" data-act="skip">Skip</button>`;
  if(ph==='peg'&&P.turn==='p'&&!canPlay('p')&&P.hand.p.length&&!P.go.p)acts=`<button class="btn" data-act="go">Go</button>`;
- const youTag=sst&&sst.crib&&sst.who==='p'?'Your crib':'You';
- T.innerHTML=`${top}${mid}<div class="bar"><span class="tag you">${youTag}</span><span class="prompt">${prompt||'&nbsp;'}</span><div class="actions">${acts}</div></div><div class="hand">${hand}</div>`;
- document.getElementById('roundInfo').textContent=`Round ${S.round} · ${S.dealer==='p'?'your':"Winnie's"} crib`;
- document.getElementById('lastEvent').textContent=S.log[0]||'';
- document.getElementById('log').innerHTML=S.log.map(t=>`<p>${t}</p>`).join('');
+ $id('handUI').innerHTML=`<div class="bar"><span class="prompt">${prompt||'&nbsp;'}</span>${acts}</div><div class="fanhand">${fan}</div>`;
+ // header
+ const place=S.biome==='forest'?'A tree stump in the forest':'A picnic in the meadow';
+ $id('roundInfo').textContent=`Round ${S.round} · ${S.dealer==='p'?'your':"Winnie's"} crib`;
+ $id('placeInfo').textContent=place;
+ for(const w of ['p','c']){const gain=S.score[w]-S.from[w];$id('score-'+w).textContent=S.score[w];$id('gain-'+w).textContent=gain>0&&ph!=='walking'?`+${gain}`:'';}
+ $id('log').innerHTML=S.log.map(t=>`<p>${t}</p>`).join('');
 }
-document.getElementById('table').addEventListener('click',e=>{
- const b=e.target.closest('button');if(!b||b.disabled)return;
+document.addEventListener('click',e=>{
+ const b=e.target.closest('#surfaceUI button,#handUI button,#oppUI button');if(!b||b.disabled)return;
  const act=b.dataset.act;
  if(act==='discard')return confirmDiscard();
  if(act==='go')return sayGo();
@@ -224,5 +236,5 @@ for(const [id,fn,key] of [['musicBtn',setMusic,'music'],['soundBtn',setSound,'so
  b.addEventListener('click',()=>{initAudio();const on=!settings[key];fn(on);b.setAttribute('aria-pressed',on);b.classList.toggle('off',!on);});
 }
 window.__cc={get S(){return S},get lane(){return lane},nextShow,confirmDiscard,play,sayGo,addPts};
-fitCards();
+placeUI();
 newGame();
