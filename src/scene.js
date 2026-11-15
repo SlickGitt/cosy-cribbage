@@ -456,7 +456,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     get debug() { return { crit, camX, camY, scale, lane }; },
     relayout: layout,
     reset(newLane) {
-      lane = newLane; clouds = null; mist = null; deer = null; seenForest = false; visited = new Set(['meadow']); parts = [];
+      lane = newLane; clouds = null; mist = null; deer = null; seenForest = false; visited = new Set([lane.holes[0].biome]); parts = [];
       crit = makeCritters(lane.critters, lane.objects, lane.seed, { found: onFind, say: sayAt, clear: (x, y) => lane.free(x, y), spot: (x, y) => lane.spotNear(x, y) }); bubble.hidden = true; banner.hidden = true; speech.hidden = true;
       pos = { p: 0, c: 0 }; target = { p: 0, c: 0 };
       this.setStop({ p: 0, c: 0 });
