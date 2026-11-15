@@ -50,3 +50,7 @@ Style trial: only the meadow and forest are switched on (`ACTIVE` in `src/biomes
 2. Lane generator with full biome set and seeds
 3. Avatars, moments, weather set
 4. Multiplayer with friends
+
+## Publishing
+
+Run `python3 tools/stamp.py` before every push. It stamps each script and the stylesheet with a hash of its contents so browsers never mix a new page with cached old scripts.
