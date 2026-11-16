@@ -29,9 +29,13 @@ function placeUI() {
   root.setProperty('--ch', L.ch.toFixed(1) + 'px');
   root.setProperty('--co', (L.cw * 0.6).toFixed(1) + 'px');
 }
-window.addEventListener('resize', () => { scene.relayout(); placeUI(); if (S) render(); });
+let resizeQueued = false;
+window.addEventListener('resize', () => {
+  if (resizeQueued) return; resizeQueued = true;
+  requestAnimationFrame(() => { resizeQueued = false; scene.relayout(); placeUI(); if (S) render(); });
+});
 
-let S, gen = 0;
+let S, gen = 0, laneUnused = false;
 let paused = false, held = [];
 const later = (fn, ms) => { const g = gen; setTimeout(() => { if (g !== gen) return; if (paused) held.push(fn); else fn(); }, ms); };
 
@@ -58,7 +62,7 @@ function pop(text,sel,who,delay=0){
   document.getElementById('fx').appendChild(d);setTimeout(()=>d.remove(),1700);
  });},delay);
 }
-function newGame(){gen++;const seed=Math.floor(Math.random()*9000)+1000;lane=generateLane(seed);scene.reset(lane);document.body.classList.remove('walking','finished');document.getElementById('seed').textContent=`Lane ${seed}`;S={seed,seenForest:false,from:{p:0,c:0},score:{p:0,c:0},disp:{p:0,c:0},dealer:null,log:[],round:0,phase:'',winner:null};startCut();}
+function newGame(){gen++;let seed;if(laneUnused&&lane){seed=lane.seed;laneUnused=false;}else{seed=Math.floor(Math.random()*9000)+1000;lane=generateLane(seed);}scene.reset(lane);document.body.classList.remove('walking','finished');document.getElementById('seed').textContent=`Lane ${seed}`;S={seed,seenForest:false,from:{p:0,c:0},score:{p:0,c:0},disp:{p:0,c:0},dealer:null,log:[],round:0,phase:'',winner:null};startCut();}
 
 // Cut for deal: you pick a card from the spread, Winnie cuts hers, low card deals (aces low).
 function startCut(){
@@ -115,7 +119,7 @@ function confirmDiscard(){
 const canPlay=w=>S.peg.hand[w].some(c=>S.peg.count+val(c)<=31);
 function resetCount(){const P=S.peg;P.spent+=P.pile.length;P.pile=[];P.count=0;P.seq=[];P.go={p:false,c:false};}
 function play(who,card){
- const P=S.peg;P.hand[who]=P.hand[who].filter(c=>c!==card);
+ const P=S.peg;P.busy=true;P.hand[who]=P.hand[who].filter(c=>c!==card);
  sfx('card');P.count+=val(card);P.seq.push(card);P.pile.push({card,who});P.last=who;P.fresh=card.id;
  log(`${NAME[who]} ${who==='p'?'play':'plays'} ${cardName(card)}. Count ${P.count}`);
  const items=pegScore(P.seq,P.count);
@@ -131,10 +135,10 @@ function resolveStuck(t){
  const P=S.peg,o=other(t);
  if(canPlay(o)){P.turn=o;return advance();}
  if(P.count!==31&&P.last){const lbl=(P.hand.p.length||P.hand.c.length)?'Go':'Last card';pop(`+1 ${lbl}`,'.pile',P.last);if(addPts(P.last,1,lbl))return;}
- const nxt=other(P.last);render();later(()=>{resetCount();P.turn=nxt;advance();},900);
+ const nxt=other(P.last);P.busy=true;render();later(()=>{resetCount();P.turn=nxt;advance();},900);
 }
 function advance(){
- if(S.phase!=='peg')return;const P=S.peg;P.fresh=null;
+ if(S.phase!=='peg')return;const P=S.peg;P.fresh=null;P.busy=false;
  if(!P.hand.p.length&&!P.hand.c.length){
   if(P.count>0&&P.count!==31){pop('+1 Last card','.pile',P.last);if(addPts(P.last,1,'Last card'))return;}
   render();later(startShow,1400);return;
@@ -147,7 +151,7 @@ function advance(){
  }
  resolveStuck(t);
 }
-function sayGo(){const P=S.peg;P.go.p=true;sfx('go');log('You say Go');render();later(()=>resolveStuck('p'),400);}
+function sayGo(){const P=S.peg;if(P.busy||P.go.p)return;P.busy=true;P.go.p=true;sfx('go');log('You say Go');render();later(()=>resolveStuck('p'),400);}
 function startShow(){
  const nd=other(S.dealer),d=S.dealer;
  S.phase='show';S.show={step:-1,steps:[{who:nd,cards:S.kept[nd],crib:false},{who:d,cards:S.kept[d],crib:false},{who:d,cards:S.crib,crib:true}]};
@@ -189,7 +193,18 @@ function cardHTML(c,{btn=false,sel=false,dim=false,dis=false,hl=false,extra='',c
  return `<${tag} class="card${sel?' sel':''}${dim?' dim':''}${hl?' hl':''} ${cls}" style="color:${su.c};${extra}" ${attrs}><span class="rk"><b>${RL[c.r]}</b><svg viewBox="0 0 9 10" aria-hidden="true"><use href="#${su.id}"></use></svg></span><svg class="big" viewBox="0 0 9 10" aria-hidden="true"><use href="#${su.id}"></use></svg></${tag}>`;
 }
 const backHTML=(st='')=>`<div class="back" style="${st}" aria-hidden="true"><svg viewBox="0 0 9 10"><use href="#s-leaf"></use></svg></div>`;
+// render() rebuilds the card areas, which drops keyboard focus. Put it back on the
+// same card or button, or on the next sensible control, so keyboard play keeps flowing.
+const UI='#surfaceUI,#handUI,#barUI,#oppUI';
 function render(){
+ const f=document.activeElement,inUI=!!(f&&f.closest&&f.closest(UI));
+ const key=inUI?(f.dataset.id?`[data-id="${f.dataset.id}"]`:f.dataset.act?`[data-act="${f.dataset.act}"]`:f.dataset.cut!==undefined?'[data-cut]':''):'';
+ draw();
+ if(!inUI||document.activeElement!==document.body)return;
+ const q=s=>[...document.querySelectorAll(s)].find(e=>!e.disabled);
+ (key&&q(`#handUI ${key},#barUI ${key},#surfaceUI ${key}`)||q('#barUI .btn')||q('#handUI button')||q('#surfaceUI button'))?.focus({preventScroll:true});
+}
+function draw(){
  if(S.phase==='cutdeal')return renderCut();
  const P=S.peg,ph=S.phase;
  const sst=ph==='show'?S.show.steps[S.show.step]:null;
@@ -233,19 +248,19 @@ function render(){
  let prompt='';
  if(ph==='discard')prompt=`Pick 2 for ${S.dealer==='p'?'your':"Winnie's"} crib`;
  else if(ph==='cut')prompt='Turning the starter';
-  else if(ph==='peg'){if(P.turn==='p'){prompt=canPlay('p')?'Your turn, play a card':P.hand.p.length?(P.go.p?'Waiting for Winnie':"You can't play, say Go"):'Out of cards';}else prompt="Winnie's turn";}
+  else if(ph==='peg'){if(P.turn==='p'&&P.busy)prompt='';else if(P.turn==='p'){prompt=canPlay('p')?'Your turn, play a card':P.hand.p.length?(P.go.p?'Waiting for Winnie':"You can't play, say Go"):'Out of cards';}else prompt="Winnie's turn";}
  else if(ph==='walking')prompt='Walking on...';
  let cards=[],opt={};
  if(ph==='discard')cards=S.hand.p.map(c=>[c,{btn:true,sel:S.sel.includes(c.id)}]);
  else if(ph==='cut')cards=S.hand.p.map(c=>[c,{}]);
- else if(ph==='peg'){const mine=P.turn==='p';cards=P.hand.p.map(c=>{const ok=mine&&P.count+val(c)<=31;return [c,{btn:true,dis:!ok,dim:mine&&!ok}];});}
+ else if(ph==='peg'){const mine=P.turn==='p'&&!P.busy;cards=P.hand.p.map(c=>{const ok=mine&&P.count+val(c)<=31;return [c,{btn:true,dis:!ok,dim:mine&&!ok}];});}
  else if(ph==='show'||ph==='over')cards=(S.kept?rowCards('p'):[]).map(c=>[c,{hl:hlIds.includes(c.id)}]);
  const n=cards.length;
  const fan=cards.map(([c,o],i)=>{const k=scene.layout().portrait?1.8:3,a=(i-(n-1)/2)*k,y=Math.abs(i-(n-1)/2)*Math.abs(i-(n-1)/2)*(k-.5);return cardHTML(c,{...o,extra:`--fan:translateY(${y.toFixed(0)}px) rotate(${a.toFixed(1)}deg)`});}).join('');
  let acts='';
  if(ph==='discard')acts=`<button class="btn" data-act="discard" ${S.sel.length===2?'':'disabled'}>Send to crib</button>`;
  if(ph==='show')acts=sst.done?`<button class="btn" data-act="next">${S.show.step<2?'Next':'Walk on'}</button>`:`<button class="btn ghost" data-act="skip">Skip</button>`;
- if(ph==='peg'&&P.turn==='p'&&!canPlay('p')&&P.hand.p.length&&!P.go.p)acts=`<button class="btn" data-act="go">Go</button>`;
+ if(ph==='peg'&&P.turn==='p'&&!P.busy&&!canPlay('p')&&P.hand.p.length&&!P.go.p)acts=`<button class="btn" data-act="go">Go</button>`;
  $id('barUI').innerHTML=`${prompt?`<span class="prompt">${prompt}</span>`:''}${acts}`;
  $id('handUI').innerHTML=`<div class="fanhand">${fan}</div>`;
  // header
@@ -266,7 +281,7 @@ document.addEventListener('click',e=>{
  if(act==='menu')return showTitle();
  const id=b.dataset.id;if(!id)return;
  if(S.phase==='discard'){S.sel=S.sel.includes(id)?S.sel.filter(x=>x!==id):S.sel.length<2?[...S.sel,id]:[S.sel[1],id];render();}
- else if(S.phase==='peg'&&S.peg.turn==='p'){const c=S.peg.hand.p.find(x=>x.id===id);if(c&&S.peg.count+val(c)<=31)play('p',c);}
+ else if(S.phase==='peg'&&S.peg.turn==='p'&&!S.peg.busy){const c=S.peg.hand.p.find(x=>x.id===id);if(c&&S.peg.count+val(c)<=31)play('p',c);}
 });
 $id('menuBtn').addEventListener('click',()=>showTitle());
 $id('menuIcon').addEventListener('click',()=>showTitle());
@@ -289,7 +304,7 @@ function inGame(){return !!(S&&S.phase&&!(S.phase==='over'&&S.finished));}
 function showTitle(){
  if(document.body.classList.contains('walking'))return;
  if(inGame())paused=true;
- if(!lane){lane=generateLane(Math.floor(Math.random()*9000)+1000);scene.reset(lane);}
+ if(!lane){lane=generateLane(Math.floor(Math.random()*9000)+1000);scene.reset(lane);laneUnused=true;}
  scene.title();document.body.classList.add('on-title');
  for(const d of document.querySelectorAll('.dialog'))d.hidden=true;
  showSheet(null);renderTitle();$id('title').hidden=false;
@@ -328,7 +343,12 @@ $id('tRules').addEventListener('click',()=>{$id('rulesDlg').hidden=false;});
 $id('tCollection').addEventListener('click',()=>{showSheet('collectionSheet');openCollection($id('collectionBody'),()=>{applyGear(scene);renderTitle();});});
 document.querySelectorAll('[data-back]').forEach(b=>b.addEventListener('click',()=>{showSheet(null);renderTitle();}));
 $id('sWinnie').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;save.settings.winnie=b.dataset.v;persist();setLevel(b.dataset.v);renderTitle();});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$id('title').hidden&&inGame())continueGame();});
+document.addEventListener('keydown',e=>{
+ if(e.key!=='Escape')return;
+ const open=[...document.querySelectorAll('.dialog')].find(d=>!d.hidden);
+ if(open){open.hidden=true;return;}
+ if(!$id('title').hidden&&inGame())continueGame();
+});
 
 // A feat in play: remember it for the end screen and give a quiet nod now.
 function feat(id){const a=award(id);if(!a)return;(S.earned=S.earned||[]).push(a);announce([a]);}
