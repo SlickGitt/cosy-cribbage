@@ -97,29 +97,32 @@ export function stone(c, x, y, w, h, rng) {
 }
 
 // A tea room tablecloth: white with a scalloped edge and a little pattern.
-// A rowing boat afloat on the lake: painted hull with a white rim, a pointed
-// bow (when there is room on the left), varnished boards, ribs, seats and the
-// oars shipped inside. It sits in its own patch of water that fades out.
-export function hull(c, x, y, w, h, room = 30) {
-  const bow = Math.max(0, Math.min(28, room - 12)), Y0 = y - 4, Y1 = y + h + 5, X1 = x + w + 4;
-  // left and right edge of the hull on row yy, shrunk by `ins` (negative grows it)
+// A boat afloat on the lake, in its own patch of water that fades out.
+// Styles: 'teal' painted rowing boat, 'punt' flat punt with decked ends and
+// cushions, 'clinker' varnished lapped-plank rowing boat, 'dinghy' red and cream.
+export function hull(c, x, y, w, h, room = 30, style = 'raft') {
+  if (style === 'raft') return raft(c, x, y, w, h);
+  const square = style === 'punt';
+  const bow = square ? 0 : Math.max(0, Math.min(28, room - 12)), Y0 = y - 4, Y1 = y + h + 5, X1 = x + w + 4;
   const edges = (yy, ins) => {
     const top = Y0 + ins, bot = Y1 - ins;
     if (yy < top || yy > bot) return null;
     const half = (bot - top) / 2, t = Math.abs(yy + 0.5 - (top + half)) / Math.max(1, half);
-    const corner = t > 0.78 ? 7 * (1 - Math.sqrt(Math.max(0, 1 - ((t - 0.78) / 0.22) ** 2))) : 0;
+    const cr = square ? 0.9 : 0.78, cs = square ? 3 : 7;
+    const corner = t > cr ? cs * (1 - Math.sqrt(Math.max(0, 1 - ((t - cr) / (1 - cr)) ** 2))) : 0;
     const l = x - 3 - bow * (1 - Math.pow(t, 1.7)) + ins + corner * (bow ? 0.4 : 1), r = X1 - ins - corner;
     return [Math.round(l), Math.round(r)];
   };
   const fill = (ins, col, dy = 0) => { for (let yy = Y0 + ins; yy <= Y1 - ins; yy++) { const e = edges(yy, ins); if (e) rect(c, e[0], yy + dy, e[1] - e[0], 1, col); } };
-  // the water it floats on, dithered away at the edges, with ripples and pads
+  const band = (ins, col) => { for (let yy = Y0 + ins; yy <= Y1 - ins; yy++) { const e = edges(yy, ins), f = edges(yy, ins + 1); if (e && f) { rect(c, e[0], yy, f[0] - e[0], 1, col); rect(c, f[1], yy, e[1] - f[1], 1, col); } else if (e) rect(c, e[0], yy, e[1] - e[0], 1, col); } };
+  const rows = (ins, fn) => { for (let yy = Y0 + ins; yy <= Y1 - ins; yy++) { const e = edges(yy, ins); if (e) fn(yy, e[0], e[1]); } };
+  // the water
   const B = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
   for (let yy = Y0 - 12; yy <= Y1 + 12; yy++) {
     const outer = edges(yy, -12), mid = edges(yy, -8), inner = edges(yy, -4);
     if (!outer) continue;
     for (let xx = outer[0]; xx < outer[1]; xx++) {
-      const inMid = mid && xx >= mid[0] && xx < mid[1], inIn = inner && xx >= inner[0] && xx < inner[1];
-      const th = B[(yy & 3) * 4 + (xx & 3)];
+      const inMid = mid && xx >= mid[0] && xx < mid[1], inIn = inner && xx >= inner[0] && xx < inner[1], th = B[(yy & 3) * 4 + (xx & 3)];
       if (!inMid && th > 5) continue;
       if (inMid && !inIn && th > 11) continue;
       rect(c, xx, yy, 1, 1, inIn ? '#2E5670' : inMid ? '#3E6A84' : '#4E7A8E');
@@ -132,24 +135,110 @@ export function hull(c, x, y, w, h, room = 30) {
     rect(c, Math.round(px), Math.round(py), 2 + (i % 3), 1, i % 2 ? '#8CB8D4' : '#B8D8EC');
   }
   for (const [px, py] of [[X1 + 6, Y0 + 6], [x + w * 0.3, Y1 + 8], [x - bow * 0.4 - 4, Y1 + 2]]) { oval(c, Math.round(px), Math.round(py), 3, 2, '#4E8A3A'); rect(c, Math.round(px), Math.round(py) - 1, 2, 1, '#3E6A84'); }
-  // shadow on the water, then the hull: dark line, paint, white rim, boards
   fill(-1, 'rgba(10,20,30,0.35)', 3);
-  fill(0, '#22303A'); fill(1, '#3E6E78'); fill(3, '#5A8A90');
-  for (let yy = Y0 + 2; yy <= Y1 - 2; yy++) { const e = edges(yy, 3), f = edges(yy, 4); if (e && f) { rect(c, e[0], yy, f[0] - e[0], 1, '#F2EEE0'); rect(c, f[1], yy, e[1] - f[1], 1, '#F2EEE0'); } else if (e) rect(c, e[0], yy, e[1] - e[0], 1, '#F2EEE0'); }
-  fill(4, '#B8844A');
-  for (let yy = Y0 + 4; yy <= Y1 - 4; yy++) {
-    const e = edges(yy, 4); if (!e) continue;
-    if ((yy - Y0) % 7 === 0) rect(c, e[0] + 1, yy, e[1] - e[0] - 2, 1, '#9A6A3A');
-    if ((yy - Y0) % 7 === 1) rect(c, e[0] + 1, yy, e[1] - e[0] - 2, 1, '#C8945A');
-    for (let rx = x + 10; rx < X1 - 6; rx += 22) if (rx > e[0] + 1 && rx < e[1] - 2) { rect(c, rx, yy, 2, 1, '#8A5A32'); rect(c, rx + 2, yy, 1, 1, '#A8743E'); }
+  const lock = (col) => { for (const ox of [x + Math.round(w * 0.4), x + Math.round(w * 0.6)]) { rect(c, ox, Y0, 3, 2, col); rect(c, ox, Y1 - 1, 3, 2, col); } };
+  const seats = (col, hi, cushion) => {
+    for (const sx of [x + Math.round(w * 0.05), X1 - Math.round(w * 0.08) - 10]) rows(4, (yy, l, r) => { if (sx >= l && sx + 10 <= r) { rect(c, sx, yy, 10, 1, col); rect(c, sx + 1, yy, 1, 1, hi); if (cushion && yy > Y0 + 8 && yy < Y0 + 22) rect(c, sx + 1, yy, 8, 1, (yy & 1) && cushion[1] ? cushion[1] : cushion[0]); } });
+  };
+  const oars = (shaft, dark, blade) => {
+    const oy = Y1 - 7;
+    rect(c, x + Math.round(w * 0.22), oy, Math.round(w * 0.5), 2, shaft); rect(c, x + Math.round(w * 0.22), oy + 1, Math.round(w * 0.5), 1, dark);
+    rect(c, x + Math.round(w * 0.72), oy - 1, 14, 4, blade); rect(c, x + Math.round(w * 0.72), oy + 2, 14, 1, dark);
+  };
+
+  if (style === 'punt') {
+    // long and flat: dark rails, a slatted floor, a deck at each end, cushions, the pole
+    fill(0, '#2A1A14'); fill(1, '#6B3E26'); band(2, '#8A5A32'); band(3, '#D8A870');
+    fill(4, '#A8743E');
+    rows(4, (yy, l, r) => { if ((yy - Y0) % 5 === 0) rect(c, l, yy, r - l, 1, '#8A5A32'); else if ((yy - Y0) % 5 === 1) rect(c, l, yy, r - l, 1, '#BC8A50'); });
+    for (let rx = x + 30; rx < X1 - 30; rx += 34) rows(4, (yy, l, r) => { rect(c, rx, yy, 3, 1, '#7A4E2A'); rect(c, rx, yy, 1, 1, '#A8743E'); });
+    // decks: the till at the stern (right), a short one at the front
+    for (const [dx, dw] of [[x - 1, 14], [X1 - 24, 20]]) rows(4, (yy, l, r) => { const a = Math.max(l, dx), b = Math.min(r, dx + dw); if (b > a) { rect(c, a, yy, b - a, 1, '#C8945A'); for (let k = a + 2; k < b; k += 4) rect(c, k, yy, 1, 1, '#A8743E'); } });
+    for (const ex of [x + 13, X1 - 25]) rows(4, (yy) => rect(c, ex, yy, 1, 1, '#5A3622'));
+    // cushions against the front deck
+    for (let k = 0; k < 3; k++) { const cy = Y0 + 10 + k * Math.round((Y1 - Y0 - 20) / 3), col = ['#B8402F', '#3E6A8E', '#C89A3A'][k]; rrect(c, x + 14, cy, 12, Math.round((Y1 - Y0 - 24) / 3), 3, col); rect(c, x + 16, cy + 2, 6, 1, 'rgba(255,255,255,0.35)'); }
+    // the pole, lying along the floor
+    const py = Y1 - 7; rect(c, x + 30, py, Math.round(w * 0.8), 2, '#D8B07A'); rect(c, x + 30, py + 1, Math.round(w * 0.8), 1, '#A8743E'); rect(c, x + 30 + Math.round(w * 0.8), py, 4, 2, '#5A5A5A');
+  } else if (style === 'clinker') {
+    // varnished, lapped planks running round the hull, green cushions, a coil of rope
+    fill(0, '#2A1A14');
+    const strakes = ['#7A4E2A', '#9A6A3A', '#7A4E2A', '#A8743E', '#8A5A32'];
+    strakes.forEach((col, i) => band(1 + i, col)); band(1, '#C8945A');
+    fill(6, '#C8945A');
+    rows(6, (yy, l, r) => { const m = (Y0 + Y1) / 2, k = (yy - Y0) % 6; if (k === 0) rect(c, l + 1, yy, r - l - 2, 1, '#A8743E'); if (k === 3 && Math.abs(yy - m) < (Y1 - Y0) / 2 - 10) rect(c, l + 2, yy, r - l - 4, 1, '#D8A870'); });
+    for (let rx = x + 14; rx < X1 - 8; rx += 26) rows(6, (yy, l, r) => { if (rx > l && rx < r - 2) rect(c, rx, yy, 2, 1, '#8A5A32'); });
+    seats('#8A5A32', '#C8945A', ['#5E7A4E', '#6E8A5A']);
+    oars('#E0BC86', '#A8743E', '#E8C890');
+    lock('#C8A040');
+    if (bow > 10) { const rx = x - bow + 14, ry = Math.round((Y0 + Y1) / 2); for (const r of [5, 3, 1]) { oval(c, rx, ry, r, Math.max(1, r - 1), r % 4 === 1 ? '#C8B080' : '#E0CC98'); } }
+  } else if (style === 'dinghy') {
+    // a painted dinghy: red outside, a gold line, cream inside, blue seats, striped cushions
+    fill(0, '#2A1A1C'); fill(1, '#B8402F'); band(2, '#D0503A'); band(3, '#E8B040');
+    fill(4, '#F2E6CC');
+    rows(4, (yy, l, r) => { if ((yy - Y0) % 7 === 0) rect(c, l + 1, yy, r - l - 2, 1, '#DCCFB2'); });
+    for (let rx = x + 14; rx < X1 - 8; rx += 24) rows(4, (yy, l, r) => { if (rx > l && rx < r - 2) rect(c, rx, yy, 2, 1, '#E2D6BC'); });
+    seats('#3E6A8E', '#6A9AB8', ['#F2E6CC', '#B8402F']);
+    oars('#E8D0A0', '#B8945A', '#3E6A8E');
+    lock('#E8B040');
+    if (bow > 10) { const ry = Math.round((Y0 + Y1) / 2); rect(c, x - bow + 6, ry - 1, 6, 1, '#E8B040'); rect(c, x - bow + 6, ry + 1, 6, 1, '#E8B040'); }
+  } else {
+    // teal painted rowing boat
+    fill(0, '#22303A'); fill(1, '#3E6E78'); fill(3, '#5A8A90'); band(3, '#F2EEE0');
+    fill(4, '#B8844A');
+    rows(4, (yy, l, r) => {
+      if ((yy - Y0) % 7 === 0) rect(c, l + 1, yy, r - l - 2, 1, '#9A6A3A');
+      if ((yy - Y0) % 7 === 1) rect(c, l + 1, yy, r - l - 2, 1, '#C8945A');
+      for (let rx = x + 10; rx < X1 - 6; rx += 22) if (rx > l + 1 && rx < r - 2) { rect(c, rx, yy, 2, 1, '#8A5A32'); rect(c, rx + 2, yy, 1, 1, '#A8743E'); }
+    });
+    seats('#7A4E2A', '#A8743E');
+    oars('#D8B07A', '#A8743E', '#E8C890');
+    lock('#2E2420');
   }
-  // seats across the boat at each end
-  for (const sx of [x + Math.round(w * 0.05), X1 - Math.round(w * 0.08) - 10]) for (let yy = Y0 + 4; yy <= Y1 - 4; yy++) { const e = edges(yy, 4); if (e && sx >= e[0] && sx + 10 <= e[1]) { rect(c, sx, yy, 10, 1, '#7A4E2A'); rect(c, sx + 1, yy, 1, 1, '#A8743E'); } }
-  // the oars, shipped along the bottom boards, and the rowlocks on the rim
-  const oy = Y1 - 7;
-  rect(c, x + Math.round(w * 0.22), oy, Math.round(w * 0.5), 2, '#D8B07A'); rect(c, x + Math.round(w * 0.22), oy + 1, Math.round(w * 0.5), 1, '#A8743E');
-  rect(c, x + Math.round(w * 0.72), oy - 1, 14, 4, '#E8C890'); rect(c, x + Math.round(w * 0.72), oy + 2, 14, 1, '#A8743E');
-  for (const ox of [x + Math.round(w * 0.4), x + Math.round(w * 0.6)]) { rect(c, ox, Y0, 3, 2, '#2E2420'); rect(c, ox, Y1 - 1, 3, 2, '#2E2420'); }
+}
+// A raft of logs lashed together, floating on the lake. Logs run the length of
+// the table with rough, uneven ends; two cross-poles are roped across them.
+export function raft(c, x, y, w, h) {
+  const rng = makeRng(Math.round(w * 7 + h)), LH = 8, n = Math.max(3, Math.round((h + 8) / LH)), top = y + Math.round((h - n * LH) / 2);
+  const logs = Array.from({ length: n }, (_, i) => ({ y: top + i * LH, l: x - 4 + rng.int(-3, 3), r: x + w + 4 + rng.int(-3, 3), tone: rng.int(0, 2) }));
+  // water all round, fading out, with ripples and pads
+  const B = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5], X0 = x - 22, X1 = x + w + 22, Y0 = top - 14, Y1 = top + n * LH + 14;
+  for (let yy = Y0; yy < Y1; yy++) for (let xx = X0; xx < X1; xx++) {
+    const d = Math.min(xx - X0, X1 - 1 - xx, (yy - Y0) * 1.4, (Y1 - 1 - yy) * 1.4), th = B[(yy & 3) * 4 + (xx & 3)];
+    if (d < 6 && th > d * 2) continue;
+    rect(c, xx, yy, 1, 1, d < 9 ? '#4E7A8E' : d < 14 ? '#3E6A84' : '#2E5670');
+  }
+  for (let i = 0; i < (w + h) / 3; i++) {
+    const side = i % 4, k = ((i * 37) % 100) / 100;
+    const px = side < 2 ? x + k * w : side === 2 ? x - 14 : x + w + 10, py = side === 0 ? top - 7 - (i % 3) : side === 1 ? top + n * LH + 5 + (i % 3) : top + k * n * LH;
+    rect(c, Math.round(px), Math.round(py), 2 + (i % 3), 1, i % 2 ? '#8CB8D4' : '#B8D8EC');
+  }
+  for (const [px, py] of [[x + w + 14, top + 4], [x + w * 0.3, top + n * LH + 9], [x - 16, top + n * LH + 2]]) { oval(c, Math.round(px), Math.round(py), 3, 2, '#4E8A3A'); rect(c, Math.round(px), Math.round(py) - 1, 2, 1, '#3E6A84'); }
+  // shadow under the raft
+  for (const L of logs) rect(c, L.l + 2, L.y + 3, L.r - L.l, LH, 'rgba(10,20,30,0.35)');
+  // the logs: round in section, so lit along the top and dark underneath, with bark marks
+  const TONES = [['#5A3E26', '#7A5634', '#94693F', '#AC8050'], ['#523822', '#6E4C2E', '#88603A', '#A07448'], ['#5E4228', '#80603A', '#9A7448', '#B48A58']];
+  for (const L of logs) {
+    const T = TONES[L.tone];
+    const shade = [T[3], T[2], T[2], T[1], T[1], T[1], T[0], '#3A2618'];
+    for (let j = 0; j < LH; j++) { const ins = j === 0 || j === LH - 1 ? 2 : j === 1 || j === LH - 2 ? 1 : 0; rect(c, L.l + ins, L.y + j, L.r - L.l - ins * 2, 1, shade[j]); }
+    for (let k = 0; k < (L.r - L.l) / 9; k++) { const bx = L.l + 4 + rng.int(0, L.r - L.l - 10), by = L.y + rng.int(2, 5); rect(c, bx, by, rng.int(2, 5), 1, rng() < 0.5 ? T[0] : T[3]); }
+    if (rng() < 0.5) { const kx = L.l + rng.int(10, L.r - L.l - 10); oval(c, kx, L.y + 3, 2, 1, T[0]); rect(c, kx, L.y + 3, 1, 1, '#3A2618'); }
+    // cut ends: pale end grain with a ring and a dark heart
+    for (const ex of [L.l, L.r - 4]) { rect(c, ex, L.y + 1, 4, LH - 2, '#D8B07A'); rect(c, ex + 1, L.y + 2, 2, LH - 4, '#C49A64'); rect(c, ex + 1, L.y + 3, 2, 2, '#8A6440'); rect(c, ex, L.y + 1, 4, 1, '#E8C890'); }
+  }
+  // two cross-poles, roped to every log
+  const bot = top + n * LH;
+  for (const px of [x + Math.round(w * 0.1), x + w - Math.round(w * 0.1) - 6]) {
+    rect(c, px + 2, top - 2, 6, bot - top + 6, 'rgba(10,20,30,0.3)');
+    rect(c, px, top - 3, 6, bot - top + 6, '#6E4C2E'); rect(c, px + 1, top - 3, 2, bot - top + 6, '#94693F'); rect(c, px + 5, top - 3, 1, bot - top + 6, '#4A3220');
+    rect(c, px, top - 4, 6, 2, '#D8B07A'); rect(c, px, bot + 2, 6, 2, '#D8B07A');
+    for (const L of logs) { const ry = L.y + 2; for (let k = 0; k < 4; k++) rect(c, px - 1 + k * 2, ry + (k % 2), 2, 1, '#E0CC98'); rect(c, px - 1, ry + 2, 8, 1, '#C8B080'); rect(c, px - 1, ry + 3, 8, 1, '#A89060'); }
+  }
+  // a paddle lying across the logs along the bottom
+  const py = bot - 6, pl = x + Math.round(w * 0.24), pw = Math.round(w * 0.46);
+  rect(c, pl + 1, py + 2, pw, 2, 'rgba(10,20,30,0.3)'); rect(c, pl, py, pw, 2, '#E0BC86'); rect(c, pl, py + 1, pw, 1, '#A8743E');
+  rect(c, pl + pw, py - 2, 16, 6, '#E8C890'); rect(c, pl + pw, py + 3, 16, 1, '#A8743E'); rect(c, pl + pw + 15, py - 1, 1, 4, '#C8A070');
+  rect(c, pl - 4, py - 1, 4, 4, '#A8743E');
 }
 export function cloth(c, x, y, w, h) {
   rect(c, x + 3, y + 4, w, h, 'rgba(20,10,10,0.3)');

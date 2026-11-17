@@ -163,7 +163,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
 
   function drawSurface(biome) {
     const s = L.surface, x = Math.round(s.x / scale), y = Math.round(s.y / scale), w = Math.round(s.w / scale), h = Math.round(s.h / scale);
-    const key = [biome, x, y, w, h, aw, ah, stop.hole, A.WALKERS.p.name, gear.rug].join('|');
+    const key = [biome, x, y, w, h, aw, ah, stop.hole, A.WALKERS.p.name, gear.rug, gear.boat].join('|');
     if (surf.key !== key) {
       surf.key = key; surf.cv = document.createElement('canvas'); surf.cv.width = aw; surf.cv.height = ah;
       paintSurface(surf.cv.getContext('2d'), biome, x, y, w, h);
@@ -182,7 +182,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     };
     if (B.surface === 'slab') stumpTable(c, x, y, w, h);
     else if (B.surface === 'planks') planks(c, x, y, w, h);
-    else if (B.surface === 'hull') hull(c, x, y, w, h, L.portrait ? 0 : x);
+    else if (B.surface === 'hull') hull(c, x, y, w, h, L.portrait ? 0 : x, gear.boat);
     else if (B.surface === 'straw') straw(c, x, y, w, h, rng);
     else if (B.surface === 'stone') stone(c, x, y, w, h, rng);
     else if (B.surface === 'cloth') cloth(c, x, y, w, h);
