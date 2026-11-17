@@ -275,7 +275,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     list.sort((a, b) => a.y - b.y).forEach((d) => d.draw(c, ix, iy));
 
     // particles: leaves shaken loose, puffs, chimney smoke
-    const home = lane.objects.find((o) => o.smoke);
+    const home = lane.home !== undefined ? lane.home : (lane.home = lane.objects.find((o) => o.smoke) || null);
     if (home && t > smokeAt && Math.abs(home.y - (iy + ah / 2)) < ah) { smokeAt = t + 450; parts.push({ x: home.x + 9, y: home.y - 43, vx: 3, vy: -6, life: 3, max: 3, col: '#E8E2D8', size: 2 }); }
     parts = parts.filter((p) => (p.life -= dt) > 0);
     for (const p of parts) {
@@ -383,13 +383,26 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
       const cx = rng.range(0, W2), cy = rng.range(0, H2), n = rng.int(5, 8);
       for (let i = 0; i < n; i++) puffs.push([cx + rng.range(-60, 60), cy + rng.range(-20, 20), rng.range(22, 40)]);
     }
+    // Strongest puff at each pixel. Each puff only reaches pixels within r across and
+    // r / 1.6 down, so visit just those (wrapping at the edges) rather than every
+    // pixel against every puff. Same result, a fraction of the work.
+    const amt = new Float32Array(W2 * H2);
+    for (const [px, py, r] of puffs) {
+      const rx = Math.ceil(r), ry = Math.ceil(r / 1.6);
+      for (let yy = Math.floor(py) - ry; yy <= Math.ceil(py) + ry; yy++) {
+        const y = ((yy % H2) + H2) % H2;
+        let dy = Math.abs(y - py); dy = Math.min(dy, H2 - dy) * 1.6;
+        for (let xx = Math.floor(px) - rx; xx <= Math.ceil(px) + rx; xx++) {
+          const x = ((xx % W2) + W2) % W2;
+          let dx = Math.abs(x - px); dx = Math.min(dx, W2 - dx);
+          const q = 1 - Math.hypot(dx, dy) / r, i = y * W2 + x;
+          if (q > amt[i]) amt[i] = q;
+        }
+      }
+    }
     const B = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
     for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) {
-      let a = 0;
-      for (const [px, py, r] of puffs) {
-        let dx = Math.abs(x - px), dy = Math.abs(y - py); dx = Math.min(dx, W2 - dx); dy = Math.min(dy, H2 - dy) * 1.6;
-        const q = 1 - Math.hypot(dx, dy) / r; if (q > a) a = q;
-      }
+      const a = amt[y * W2 + x];
       if (a <= 0) continue;
       const th = (B[(y & 3) * 4 + (x & 3)] + 0.5) / 16, lvl = a > 0.35 ? 2 : a * 2.86 > th ? 1 : 0;
       if (!lvl) continue;
@@ -447,7 +460,6 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     hud.appendChild(d); place(d, x, y); setTimeout(() => d.remove(), 1300);
   }
 
-  window.addEventListener('resize', () => { layout(); });
   layout();
   requestAnimationFrame(frame);
 

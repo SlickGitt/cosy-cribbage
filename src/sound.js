@@ -11,9 +11,13 @@ export function initAudio() {
   if (settings.music) startMusic();
 }
 
+const noiseCache = new Map();
 function noiseBuffer(sec, sparse = false) {
+  const key = sec + (sparse ? 's' : '');
+  if (noiseCache.has(key)) return noiseCache.get(key);
   const b = ctx.createBuffer(1, ctx.sampleRate * sec, ctx.sampleRate), d = b.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = sparse ? (Math.random() < 0.0006 ? (Math.random() - 0.5) * 1.6 : (Math.random() - 0.5) * 0.04) : Math.random() * 2 - 1;
+  noiseCache.set(key, b);
   return b;
 }
 
@@ -184,6 +188,6 @@ export function setAmbience(rain, wind) {
     amb = { rain: loop(2600, 500), wind: loop(520, 120), t: 0 };
   }
   const now = ctx.currentTime;
-  amb.rain.g.gain.setTargetAtTime(rain * 0.05, now, 0.8);
+  if (Math.abs(rain - (amb.lastRain ?? -1)) > 0.01) { amb.lastRain = rain; amb.rain.g.gain.setTargetAtTime(rain * 0.05, now, 0.8); }
   if (now > amb.t) { amb.t = now + 1.5 + Math.random() * 2; amb.wind.g.gain.setTargetAtTime(wind * (0.02 + Math.random() * 0.04), now, 1.2); amb.wind.a.frequency.setTargetAtTime(380 + Math.random() * 300, now, 1); }
 }
