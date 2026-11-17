@@ -97,19 +97,59 @@ export function stone(c, x, y, w, h, rng) {
 }
 
 // A tea room tablecloth: white with a scalloped edge and a little pattern.
-// The bottom of a rowing boat, moored on the lake: rounded ends, boards and seats.
-export function hull(c, x, y, w, h) {
-  rect(c, x - 8, y + h - 3, w + 16, 9, '#2E5A7A'); rect(c, x - 8, y + h + 1, w + 16, 1, '#9CCBE8');
-  for (let i = 0; i < w + 16; i += 7) rect(c, x - 8 + i, y + h + 3 + (i % 3), 3, 1, '#4E7A9E');
-  const r = Math.min(Math.round(h / 2), 22);
-  rrect(c, x + 3, y + 5, w, h, r, 'rgba(20,10,10,0.3)');
-  rrect(c, x - 2, y - 2, w + 4, h + 4, r + 2, '#5A3622');
-  rrect(c, x, y, w, h, r, '#8A5A32');
-  rrect(c, x + 3, y + 3, w - 6, h - 6, Math.max(2, r - 3), '#B07E46');
-  for (let j = 9; j < h - 6; j += 7) { const d = Math.abs(j - h / 2) / (h / 2), ins = Math.round(r * (1 - Math.sqrt(Math.max(0, 1 - d * d))) * 0.9) + 4; rect(c, x + ins, y + j, w - ins * 2, 1, '#8A5A32'); }
-  for (const sx of [x + Math.round(w * 0.1), x + w - Math.round(w * 0.1) - 6]) { rect(c, sx, y + 3, 6, h - 6, '#7A4E2A'); rect(c, sx, y + 3, 6, 1, '#A8743E'); rect(c, sx + 1, y + 4, 1, h - 8, '#8A5A32'); }
-  rect(c, x + r, y - 2, w - r * 2, 1, '#D0A06A');
-  for (const ox of [x + Math.round(w * 0.3), x + Math.round(w * 0.7)]) { rect(c, ox, y - 4, 3, 3, '#2E2420'); rect(c, ox, y + h + 1, 3, 3, '#2E2420'); }
+// A rowing boat afloat on the lake: painted hull with a white rim, a pointed
+// bow (when there is room on the left), varnished boards, ribs, seats and the
+// oars shipped inside. It sits in its own patch of water that fades out.
+export function hull(c, x, y, w, h, room = 30) {
+  const bow = Math.max(0, Math.min(28, room - 12)), Y0 = y - 4, Y1 = y + h + 5, X1 = x + w + 4;
+  // left and right edge of the hull on row yy, shrunk by `ins` (negative grows it)
+  const edges = (yy, ins) => {
+    const top = Y0 + ins, bot = Y1 - ins;
+    if (yy < top || yy > bot) return null;
+    const half = (bot - top) / 2, t = Math.abs(yy + 0.5 - (top + half)) / Math.max(1, half);
+    const corner = t > 0.78 ? 7 * (1 - Math.sqrt(Math.max(0, 1 - ((t - 0.78) / 0.22) ** 2))) : 0;
+    const l = x - 3 - bow * (1 - Math.pow(t, 1.7)) + ins + corner * (bow ? 0.4 : 1), r = X1 - ins - corner;
+    return [Math.round(l), Math.round(r)];
+  };
+  const fill = (ins, col, dy = 0) => { for (let yy = Y0 + ins; yy <= Y1 - ins; yy++) { const e = edges(yy, ins); if (e) rect(c, e[0], yy + dy, e[1] - e[0], 1, col); } };
+  // the water it floats on, dithered away at the edges, with ripples and pads
+  const B = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  for (let yy = Y0 - 12; yy <= Y1 + 12; yy++) {
+    const outer = edges(yy, -12), mid = edges(yy, -8), inner = edges(yy, -4);
+    if (!outer) continue;
+    for (let xx = outer[0]; xx < outer[1]; xx++) {
+      const inMid = mid && xx >= mid[0] && xx < mid[1], inIn = inner && xx >= inner[0] && xx < inner[1];
+      const th = B[(yy & 3) * 4 + (xx & 3)];
+      if (!inMid && th > 5) continue;
+      if (inMid && !inIn && th > 11) continue;
+      rect(c, xx, yy, 1, 1, inIn ? '#2E5670' : inMid ? '#3E6A84' : '#4E7A8E');
+    }
+  }
+  for (let i = 0; i < (w + h) / 3; i++) {
+    const side = i % 4, k = (i * 37) % 100 / 100;
+    const px = side < 2 ? x - bow + k * (w + bow) : side === 2 ? x - bow * 0.6 - 8 : X1 + 4;
+    const py = side === 0 ? Y0 - 5 - (i % 3) : side === 1 ? Y1 + 4 + (i % 3) : Y0 + k * (Y1 - Y0);
+    rect(c, Math.round(px), Math.round(py), 2 + (i % 3), 1, i % 2 ? '#8CB8D4' : '#B8D8EC');
+  }
+  for (const [px, py] of [[X1 + 6, Y0 + 6], [x + w * 0.3, Y1 + 8], [x - bow * 0.4 - 4, Y1 + 2]]) { oval(c, Math.round(px), Math.round(py), 3, 2, '#4E8A3A'); rect(c, Math.round(px), Math.round(py) - 1, 2, 1, '#3E6A84'); }
+  // shadow on the water, then the hull: dark line, paint, white rim, boards
+  fill(-1, 'rgba(10,20,30,0.35)', 3);
+  fill(0, '#22303A'); fill(1, '#3E6E78'); fill(3, '#5A8A90');
+  for (let yy = Y0 + 2; yy <= Y1 - 2; yy++) { const e = edges(yy, 3), f = edges(yy, 4); if (e && f) { rect(c, e[0], yy, f[0] - e[0], 1, '#F2EEE0'); rect(c, f[1], yy, e[1] - f[1], 1, '#F2EEE0'); } else if (e) rect(c, e[0], yy, e[1] - e[0], 1, '#F2EEE0'); }
+  fill(4, '#B8844A');
+  for (let yy = Y0 + 4; yy <= Y1 - 4; yy++) {
+    const e = edges(yy, 4); if (!e) continue;
+    if ((yy - Y0) % 7 === 0) rect(c, e[0] + 1, yy, e[1] - e[0] - 2, 1, '#9A6A3A');
+    if ((yy - Y0) % 7 === 1) rect(c, e[0] + 1, yy, e[1] - e[0] - 2, 1, '#C8945A');
+    for (let rx = x + 10; rx < X1 - 6; rx += 22) if (rx > e[0] + 1 && rx < e[1] - 2) { rect(c, rx, yy, 2, 1, '#8A5A32'); rect(c, rx + 2, yy, 1, 1, '#A8743E'); }
+  }
+  // seats across the boat at each end
+  for (const sx of [x + Math.round(w * 0.05), X1 - Math.round(w * 0.08) - 10]) for (let yy = Y0 + 4; yy <= Y1 - 4; yy++) { const e = edges(yy, 4); if (e && sx >= e[0] && sx + 10 <= e[1]) { rect(c, sx, yy, 10, 1, '#7A4E2A'); rect(c, sx + 1, yy, 1, 1, '#A8743E'); } }
+  // the oars, shipped along the bottom boards, and the rowlocks on the rim
+  const oy = Y1 - 7;
+  rect(c, x + Math.round(w * 0.22), oy, Math.round(w * 0.5), 2, '#D8B07A'); rect(c, x + Math.round(w * 0.22), oy + 1, Math.round(w * 0.5), 1, '#A8743E');
+  rect(c, x + Math.round(w * 0.72), oy - 1, 14, 4, '#E8C890'); rect(c, x + Math.round(w * 0.72), oy + 2, 14, 1, '#A8743E');
+  for (const ox of [x + Math.round(w * 0.4), x + Math.round(w * 0.6)]) { rect(c, ox, Y0, 3, 2, '#2E2420'); rect(c, ox, Y1 - 1, 3, 2, '#2E2420'); }
 }
 export function cloth(c, x, y, w, h) {
   rect(c, x + 3, y + 4, w, h, 'rgba(20,10,10,0.3)');

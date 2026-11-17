@@ -182,7 +182,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     };
     if (B.surface === 'slab') stumpTable(c, x, y, w, h);
     else if (B.surface === 'planks') planks(c, x, y, w, h);
-    else if (B.surface === 'hull') hull(c, x, y, w, h);
+    else if (B.surface === 'hull') hull(c, x, y, w, h, L.portrait ? 0 : x);
     else if (B.surface === 'straw') straw(c, x, y, w, h, rng);
     else if (B.surface === 'stone') stone(c, x, y, w, h, rng);
     else if (B.surface === 'cloth') cloth(c, x, y, w, h);
