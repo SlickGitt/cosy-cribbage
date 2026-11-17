@@ -9,6 +9,7 @@ import { WALKERS, setPlayerWalker, walkerCanvas } from './walkers.js';
 import { generateLane } from './lane.js';
 import { createScene } from './scene.js';
 import { initAudio, sfx, setMusic, setSound, settings } from './sound.js';
+import * as net from './online.js';
 
 const scene = createScene({ canvas: document.getElementById('scene'), hud: document.getElementById('hud'), onFind: (k) => announce(discover(k)) });
 let lane = null;
@@ -105,6 +106,7 @@ function startRound(){
 }
 function confirmDiscard(){
  if(S.sel.length!==2)return;
+ if(ON)return discardOnline();
  const mine=S.hand.p.filter(c=>S.sel.includes(c.id));
  S.hand.p=S.hand.p.filter(c=>!S.sel.includes(c.id));
  S.hand.c=S.hand.c.filter(c=>!S.compDiscard.includes(c));
@@ -161,9 +163,9 @@ function nextShow(){
  const sh=S.show;sh.step++;
  if(sh.step>2){
   S.phase='walking';document.body.classList.add('walking');render();
-  scene.walk(S.score).then(()=>{if(S.phase!=='walking')return;document.body.classList.remove('walking');S.dealer=other(S.dealer);startRound();});
+  scene.walk(S.score).then(()=>{if(S.phase!=='walking')return;document.body.classList.remove('walking');if(ON)return showDone();S.dealer=other(S.dealer);startRound();});
   return;}
- const st=sh.steps[sh.step];st.res=scoreHand(st.cards,S.starter,st.crib);st.shown=0;st.run=0;st.done=false;
+ const st=sh.steps[sh.step];st.res=st.res||scoreHand(st.cards,S.starter,st.crib);st.shown=0;st.run=0;st.done=false;
  if(st.who==='p'){if(!st.crib)S.bestHand=Math.max(S.bestHand||0,st.res.total);const T=st.res.total;
   if(T>=20)feat('twenty');if(T===28)feat('twentyeight');if(T===29)feat('perfect');if(st.res.items.some(i=>i.label==='Flush of 5'))feat('flush5');}
  render();
@@ -192,6 +194,7 @@ function cardHTML(c,{btn=false,sel=false,dim=false,dis=false,hl=false,extra='',c
  const attrs=btn?`data-id="${c.id}" aria-label="${cardName(c)}" aria-pressed="${sel}" ${dis?'disabled':''}`:`role="img" aria-label="${cardName(c)}"`;
  return `<${tag} class="card${sel?' sel':''}${dim?' dim':''}${hl?' hl':''} ${cls}" style="color:${su.c};${extra}" ${attrs}><span class="rk"><b>${RL[c.r]}</b><svg viewBox="0 0 9 10" aria-hidden="true"><use href="#${su.id}"></use></svg></span><svg class="big" viewBox="0 0 9 10" aria-hidden="true"><use href="#${su.id}"></use></svg></${tag}>`;
 }
+const their=()=>NAME.c+"'s";
 const backHTML=(st='')=>`<div class="back" style="${st}" aria-hidden="true"><svg viewBox="0 0 9 10"><use href="#s-leaf"></use></svg></div>`;
 // render() rebuilds the card areas, which drops keyboard focus. Put it back on the
 // same card or button, or on the next sensible control, so keyboard play keeps flowing.
@@ -206,6 +209,7 @@ function render(){
 }
 function draw(){
  if(S.phase==='cutdeal')return renderCut();
+ if(S.phase==='waiting')return renderWaiting();
  const P=S.peg,ph=S.phase;
  const sst=ph==='show'?S.show.steps[S.show.step]:null;
  const hlIds=sst&&sst.shown&&!sst.done?sst.res.items[sst.shown-1].cards.map(c=>c.id):[];
@@ -214,11 +218,11 @@ function draw(){
  // Winnie's cards, held beside her
  let opp;
  if(ph==='show'||(ph==='over'&&S.show&&S.kept))opp=`<div class="held small${active('c')?'':' faded'}">${rowCards('c').map(c=>cardHTML(c,{hl:hlIds.includes(c.id)})).join('')}</div>`;
- else{const n=ph==='discard'?6:ph==='cut'?4:P?P.hand.c.length:0;opp=`<div class="fan small">${Array.from({length:n},()=>backHTML()).join('')}</div>`;}
+ else{const n=S.oppN!=null?S.oppN:ph==='discard'?6:ph==='cut'?4:P?P.hand.c.length:0;opp=`<div class="fan small">${Array.from({length:n},()=>backHTML()).join('')}</div>`;}
  const ou=$id('oppUI');ou.innerHTML=opp;
  {const L=scene.layout(),sf=L.surface,hw=ou.offsetWidth/2,m=14*L.u;ou.style.left=Math.max(sf.x+m+hw,Math.min(sf.x+sf.w-m-hw,L.seats[0].x))+'px';}
  // the surface: starter, pile and crib
- const cribName=S.dealer==='p'?'Your crib':"Winnie's crib";
+ const cribName=S.dealer==='p'?'Your crib':their()+' crib';
  const starter=`<div class="spot"><span class="tag">${S.starter?'Starter':'Deck'}</span><div id="starter">${S.starter?cardHTML(S.starter,{hl:hlIds.includes(S.starter.id)}):`<div class="crib">${[0,3,6].map(o=>backHTML(`position:absolute;left:${o}px;top:${o}px`)).join('')}</div>`}</div></div>`;
  let cribVis;
  if(ph==='show'&&S.show.step===2)cribVis=`<div class="empty">Counting</div>`;
@@ -227,13 +231,13 @@ function draw(){
  const crib=`<div class="spot"><span class="tag">${cribName}</span>${cribVis}</div>`;
  let centre;
  if(ph==='show'){
-  const st=sst,what=st.crib?`${st.who==='p'?'Your':"Winnie's"} crib`:`${st.who==='p'?'Your':"Winnie's"} hand`;
+  const st=sst,what=st.crib?`${st.who==='p'?'Your':their()} crib`:`${st.who==='p'?'Your':their()} hand`;
   const last=st.shown?st.res.items[st.shown-1]:null;
   const note=st.done?(st.res.total?`${st.res.total} ${st.res.total===1?'point':'points'}`:'Nothing to score'):last?`${last.label}: ${last.cards.map(short).join(' + ')}`:'Counting';
   centre=`<div class="centre"><div class="panel countbox" id="tally"><span class="label">${what}</span><b>${st.run}</b><span class="note">${note}</span></div></div>`;
  }else if(ph==='over'&&S.finished){
   const lose=other(S.winner),ls=S.score[lose];const sk=ls<61?' A double skunk!':ls<91?' A skunk!':'';
-  centre=`<div class="centre"><div class="panel overlay"><span class="total">${S.winner==='p'?'You made it home first!':'Winnie made it home first'}</span><span class="label">${S.score.p} to ${S.score.c}.${sk} Lane ${S.seed}.</span>${(S.newUnlocks||[]).filter(u=>u.reward).map(u=>`<span class="unlock" data-reward="${u.reward}">${u.title}: ${REWARDS[u.reward].name}${REWARDS[u.reward].kind==='walker'?' walker':''}</span>`).join('')}<span class="row"><button class="btn" data-act="new">Play again</button><button class="btn ghost" data-act="menu">Menu</button></span></div></div>`;
+  centre=`<div class="centre"><div class="panel overlay"><span class="total">${S.winner==='p'?'You made it home first!':NAME.c+' made it home first'}</span><span class="label">${S.score.p} to ${S.score.c}.${sk} Lane ${S.seed}.</span>${(S.newUnlocks||[]).filter(u=>u.reward).map(u=>`<span class="unlock" data-reward="${u.reward}">${u.title}: ${REWARDS[u.reward].name}${REWARDS[u.reward].kind==='walker'?' walker':''}</span>`).join('')}<span class="row"><button class="btn" data-act="new">Play again</button><button class="btn ghost" data-act="menu">Menu</button></span></div></div>`;
  }else{
   const cur=P?P.pile:[],n=cur.length;
   const pile=cur.map((x,i)=>{const k=n-1-i,step=k<=2?k:2,dy=hashf(x.card.id,'y')*6,rt=hashf(x.card.id,'r')*(k<=2?5:10);
@@ -246,10 +250,11 @@ function draw(){
  $id('surfaceUI').querySelectorAll('.unlock').forEach(e=>e.prepend(rewardIcon(e.dataset.reward)));
  // your hand and the prompt
  let prompt='';
- if(ph==='discard')prompt=`Pick 2 for ${S.dealer==='p'?'your':"Winnie's"} crib`;
+ if(ph==='discard')prompt=`Pick 2 for ${S.dealer==='p'?'your':their()} crib`;
  else if(ph==='cut')prompt='Turning the starter';
-  else if(ph==='peg'){if(P.turn==='p'&&P.busy)prompt='';else if(P.turn==='p'){prompt=canPlay('p')?'Your turn, play a card':P.hand.p.length?(P.go.p?'Waiting for Winnie':"You can't play, say Go"):'Out of cards';}else prompt="Winnie's turn";}
+  else if(ph==='peg'){if(P.turn==='p'&&P.busy)prompt='';else if(P.turn==='p'){prompt=canPlay('p')?'Your turn, play a card':P.hand.p.length?(P.go.p?'Waiting for '+NAME.c:"You can't play, say Go"):'Out of cards';}else prompt=their()+' turn';}
  else if(ph==='walking')prompt='Walking on...';
+ if(S.prompt)prompt=S.prompt;
  let cards=[],opt={};
  if(ph==='discard')cards=S.hand.p.map(c=>[c,{btn:true,sel:S.sel.includes(c.id)}]);
  else if(ph==='cut')cards=S.hand.p.map(c=>[c,{}]);
@@ -264,7 +269,7 @@ function draw(){
  $id('barUI').innerHTML=`${prompt?`<span class="prompt">${prompt}</span>`:''}${acts}`;
  $id('handUI').innerHTML=`<div class="fanhand">${fan}</div>`;
  // header
- $id('roundInfo').textContent=`Round ${S.round}, ${S.dealer==='p'?'your':"Winnie's"} crib · ${scene.weather()}`;
+ $id('roundInfo').textContent=`Round ${S.round}, ${S.dealer==='p'?'your':their()} crib · ${scene.weather()}`;
  for(const w of ['p','c']){const gain=S.score[w]-S.from[w];$id('score-'+w).textContent=S.score[w];$id('gain-'+w).textContent=gain>0&&ph!=='walking'?`+${gain}`:'';}
  $id('log').innerHTML=S.log.map(t=>`<p>${t}</p>`).join('');
 }
@@ -277,11 +282,13 @@ document.addEventListener('click',e=>{
  if(act==='go')return sayGo();
  if(act==='next')return nextShow();
  if(act==='skip')return skipShow();
- if(act==='new')return newGame();
+ if(act==='new')return ON?(closeOnline(),showTitle(),openFriend()):newGame();
+ if(act==='copylink')return copyLink();
+ if(act==='sharelink')return shareLink();
  if(act==='menu')return showTitle();
  const id=b.dataset.id;if(!id)return;
  if(S.phase==='discard'){S.sel=S.sel.includes(id)?S.sel.filter(x=>x!==id):S.sel.length<2?[...S.sel,id]:[S.sel[1],id];render();}
- else if(S.phase==='peg'&&S.peg.turn==='p'&&!S.peg.busy){const c=S.peg.hand.p.find(x=>x.id===id);if(c&&S.peg.count+val(c)<=31)play('p',c);}
+ else if(S.phase==='peg'&&S.peg.turn==='p'&&!S.peg.busy){const c=S.peg.hand.p.find(x=>x.id===id);if(c&&S.peg.count+val(c)<=31)ON?playOnline(c):play('p',c);}
 });
 $id('menuBtn').addEventListener('click',()=>showTitle());
 $id('menuIcon').addEventListener('click',()=>showTitle());
@@ -312,8 +319,8 @@ function showTitle(){
 }
 function hideTitle(){$id('title').hidden=true;document.body.classList.remove('on-title');}
 function continueGame(){hideTitle();scene.resume();paused=false;const q=held;held=[];q.forEach(fn=>fn());render();}
-function startNew(){hideTitle();paused=false;held=[];newGame();}
-function showSheet(id){for(const sh of ['walkerSheet','settingsSheet','collectionSheet'])$id(sh).hidden=sh!==id;document.querySelector('.title-card').hidden=!!id;}
+function startNew(){closeOnline();hideTitle();paused=false;held=[];newGame();}
+function showSheet(id){for(const sh of ['walkerSheet','settingsSheet','collectionSheet','friendSheet'])$id(sh).hidden=sh!==id;document.querySelector('.title-card').hidden=!!id;}
 function rankName(){return RANKS.filter(r=>save.stats.holes>=r.holes).pop().name;}
 function renderTitle(){
  $id('tContinue').hidden=!inGame();
@@ -363,8 +370,215 @@ function announce(list){
 
 function finishGame(){
  if(S.recorded)return;S.recorded=true;
- S.newUnlocks=[...(S.earned||[]),...recordGame({won:S.winner==='p',myScore:S.score.p,theirScore:S.score.c,bestHand:S.bestHand||0,level:save.settings.winnie})];
+ if(ON){if(onlineDone(ON.id))return;markDone(ON.id);}
+ S.newUnlocks=[...(S.earned||[]),...recordGame({won:S.winner==='p',myScore:S.score.p,theirScore:S.score.c,bestHand:S.bestHand||0,level:ON?'friend':save.settings.winnie})];
 }
+
+/* ---------- friend play ----------
+ The server deals, checks every move and scores. This side shows the game: it turns each
+ player's view of the server state into the same S the solo game draws, adds the little
+ pops and sounds for what just happened, and replays each show so it can be counted along. */
+let ON=null;
+const cardOf=id=>{const [r,s]=id.split('-').map(Number);return {r,s,id};};
+const store={get:k=>{try{return localStorage.getItem(k);}catch(e){return null;}},set:(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}}};
+const safeName=n=>String(n||'').replace(/[<>&"]/g,'').trim().slice(0,20);
+const onlineDone=id=>store.get('ll-done-'+id)==='1';
+function markDone(id){store.set('ll-done-'+id,'1');if(ON&&ON.g&&ON.g.show)markSeen(ON.g.show.round);}
+function markSeen(r){if(!ON)return;ON.showSeen=Math.max(ON.showSeen,r);store.set('ll-seen-'+ON.id,String(ON.showSeen));}
+function toast(text){const t=document.createElement('div');t.className='toast';t.textContent=text;$id('toasts').append(t);setTimeout(()=>t.remove(),4200);}
+function closeOnline(){
+ if(!ON)return;
+ if(ON.unwatch)ON.unwatch();
+ ON=null;NAME.c='Winnie';WALKERS.c=WALKERS.winnie;scene.setQuiet(false);document.body.classList.remove('online');
+}
+async function openOnline(id,first){
+ closeOnline();gen++;paused=false;held=[];
+ ON={id,me:null,ver:-1,g:null,busy:false,pending:null,replaying:false,unwatch:null,stopRound:null,showSeen:+(store.get('ll-seen-'+id)||0)};
+ const mine=ON;
+ hideTitle();document.body.classList.remove('walking','finished');document.body.classList.add('online');scene.setQuiet(true);
+ try{
+  const g=first||await net.getGame(id);
+  if(!g)throw new Error("That game isn't available");
+  if(ON!==mine)return;
+  ON.me=g.me;
+  lane=generateLane(g.seed);laneUnused=false;scene.reset(lane);
+  $id('seed').textContent=`Lane ${g.seed}`;
+  S={seed:g.seed,online:true,log:[],score:{p:0,c:0},from:{p:0,c:0},disp:{p:0,c:0},dealer:null,round:0,phase:'',winner:null,sel:[],crib:[]};
+  applyServer(g,false);
+  const un=await net.watch(id,refresh);
+  if(ON===mine)ON.unwatch=un;else un();
+ }catch(e){if(ON===mine){closeOnline();showTitle();}toast(e.message);}
+}
+async function refresh(){
+ if(!ON)return;
+ if(ON.fetching){ON.again=true;return;}
+ const mine=ON;ON.fetching=true;
+ try{const g=await net.getGame(mine.id);if(g&&ON===mine)applyServer(g,true);}catch(e){}
+ finally{mine.fetching=false;if(mine.again&&ON===mine){mine.again=false;refresh();}}
+}
+function applyServer(g,animate){
+ if(!ON||!g)return;
+ if(ON.g&&g.version<=ON.ver)return;          // an older copy of what we already have
+ if(ON.replaying){ON.pending=g;return;}       // finish counting the last round first
+ const fresh=g.version===ON.ver+1;
+ ON.ver=g.version;ON.g=g;
+ const op=g.me==='a'?'b':'a';
+ if(g['name_'+op]){NAME.c=safeName(g['name_'+op])||'Your friend';WALKERS.c=WALKERS[g['walker_'+op]]||WALKERS.bobble;}
+ if(g.show&&g.show.round>ON.showSeen&&(g.round>g.show.round||g.status==='over'))return replayShow(g,animate&&fresh);
+ buildState(g,animate&&fresh);
+}
+const sideOf=w=>w===ON.me?'p':'c';
+function buildState(g,anim){
+ const me=g.me,op=me==='a'?'b':'a',L=sideOf;
+ const newRound=S.round!==g.round;
+ S.round=g.round;S.seed=g.seed;S.dealer=g.dealer?L(g.dealer):null;
+ S.score={p:g['score_'+me],c:g['score_'+op]};S.from={p:g['from_'+me],c:g['from_'+op]};
+ if(ON.stopRound!==g.round){S.biome=scene.setStop(S.from);ON.stopRound=g.round;}
+ scene.setBanked(S.score);
+ S.starter=g.starter?cardOf(g.starter):null;
+ S.crib=Array.from({length:g.crib_n},()=>null);
+ S.kept=null;S.show=null;S.prompt='';S.oppN=null;S.peg=null;
+ if(newRound){S.sel=[];if(g.round>0)log(`Round ${g.round}. ${S.dealer==='p'?'Your':their()} crib`);}
+ if(g.status==='waiting'){S.phase='waiting';S.hand={p:[]};}
+ else if(g.status==='over')return endOnline(g,anim);
+ else if(g.phase==='discard'){
+  S.hand={p:g.hand.map(cardOf)};S.oppN=g.opp_n;
+  if(!g.discarded[me]){S.phase='discard';S.sel=(S.sel||[]).filter(id=>g.hand.includes(id));}
+  else{S.phase='cut';S.prompt=`Waiting for ${NAME.c} to choose`;}
+ }else if(g.phase==='peg'){
+  const pg=g.peg;S.phase='peg';
+  S.peg={count:pg.count,pile:pg.pile.map(x=>({card:cardOf(x.c),who:L(x.w)})),seq:pg.pile.map(x=>cardOf(x.c)),spent:pg.spent,turn:L(pg.turn),
+   go:{p:!!pg.go[me],c:!!pg.go[op]},hand:{p:g.hand.map(cardOf),c:Array.from({length:g.opp_n})},busy:false,last:pg.last?L(pg.last):null,fresh:null};
+  S.hand={p:S.peg.hand.p};
+  if(S.peg.turn==='c')S.prompt=`${their()} turn`;
+ }
+ if(g.round===1&&g.cut&&!S.cutLogged){S.cutLogged=true;const a=cardOf(g.cut[me]),b=cardOf(g.cut[op]);log(`You cut ${cardName(a)}, ${NAME.c} cut ${cardName(b)}. ${S.dealer==='p'?'You deal':NAME.c+' deals'} first`);}
+ if(anim)playEvents(g.events,me);
+ render();
+}
+// Little pops, sounds and log lines for what just happened.
+function playEvents(evs,me){
+ let k=0;
+ for(const e of evs||[]){
+  const w=e.who?sideOf(e.who):null;
+  if(e.kind==='joined'){toast(`${NAME.c} has joined. Let's walk!`);sfx('chime');}
+  else if(e.kind==='discard'&&w==='c')log(`${NAME.c} sent two cards to the crib`);
+  else if(e.kind==='starter'){log(`Starter: ${cardName(cardOf(e.card))}`);sfx('card');}
+  else if(e.kind==='play'){if(w==='c'){sfx('card');log(`${NAME.c} plays ${cardName(cardOf(e.card))}. Count ${e.count}`);}else log(`You play ${cardName(cardOf(e.card))}. Count ${e.count}`);
+   if(S.peg&&S.peg.pile.some(x=>x.card.id===e.card))S.peg.fresh=e.card;}
+  else if(e.kind==='go'){sfx('go');log(`${w==='p'?'You say':NAME.c+' says'} Go`);}
+  else if(e.kind==='pts'){log(`${NAME[w]}: ${e.label} for ${e.pts}`);sfx('score',e.pts);pop(`+${e.pts} ${e.label}`,S.peg&&S.peg.pile.length?'.pile':'.countbox',w,k++*450);
+   if(w==='p'){if(e.label==='31')feat('thirtyone');if(e.label==='Pair royal')feat('pairroyal');if(e.label==='Double pair royal')feat('dpr');if(e.label==='His heels'&&S.dealer==='p')feat('heels');}}
+ }
+}
+// Count the hands and crib from the round that just finished, then walk on.
+function replayShow(g,anim){
+ const sh=g.show,me=g.me,op=me==='a'?'b':'a',L=sideOf;
+ if(anim)playEvents(g.events.filter(e=>e.kind!=='show'),me);
+ ON.replaying=true;ON.pending=null;ON.showRound=sh.round;
+ S.round=sh.round;S.dealer=L(sh.dealer);S.starter=cardOf(sh.starter);
+ const from=sh.from?{p:sh.from[me],c:sh.from[op]}:{p:sh.before[me],c:sh.before[op]};
+ S.from=from;S.score={p:sh.before[me],c:sh.before[op]};
+ if(ON.stopRound!==sh.round){S.biome=scene.setStop(from);ON.stopRound=sh.round;}
+ scene.setBanked(S.score);
+ const steps=sh.steps.map(st=>({who:L(st.who),cards:st.cards.map(cardOf),crib:st.crib,
+  res:{items:st.items.map(i=>({label:i.label,pts:i.pts,cards:i.cards.map(cardOf)})),total:st.total}}));
+ S.kept={[steps[0].who]:steps[0].cards,[steps[1].who]:steps[1].cards};S.crib=steps[2].cards;
+ S.peg=null;S.prompt='';S.oppN=null;S.phase='show';S.show={step:-1,steps};
+ render();
+ later(nextShow,anim?1200:300);
+}
+function showDone(){
+ markSeen(ON.showRound);ON.replaying=false;
+ const g=ON.pending&&ON.pending.version>ON.g.version?ON.pending:ON.g;ON.pending=null;ON.g=g;ON.ver=g.version;
+ buildState(g,false);
+}
+function endOnline(g,anim){
+ const me=g.me;
+ S.phase='over';S.winner=sideOf(g.winner);S.peg=null;S.prompt='';S.oppN=0;
+ if(anim)playEvents(g.events,me);
+ if(onlineDone(ON.id)){S.finished=true;S.recorded=true;document.body.classList.add('finished');render();return;}
+ S.finished=false;log(`${S.winner==='p'?'You reach':NAME.c+' reaches'} home at 121`);render();
+ later(()=>{document.body.classList.add('walking');scene.walk(S.score).then(()=>{if(S.phase!=='over')return;S.finished=true;finishGame();document.body.classList.remove('walking');document.body.classList.add('finished');render();});},1300);
+}
+function discardOnline(){
+ if(ON.busy)return;ON.busy=true;const ids=[...S.sel],mine=ON;
+ sfx('card');S.hand.p=S.hand.p.filter(c=>!ids.includes(c.id));S.sel=[];S.phase='cut';S.prompt='Sending to the crib';S.crib=[...S.crib,null,null];render();
+ net.discard(mine.id,ids).then(g=>{if(ON===mine)applyServer(g,true);}).catch(e=>{toast(e.message);refresh();}).finally(()=>{mine.busy=false;});
+}
+function playOnline(c){
+ if(ON.busy)return;ON.busy=true;const P=S.peg,mine=ON;
+ P.busy=true;P.hand.p=P.hand.p.filter(x=>x!==c);P.pile.push({card:c,who:'p'});P.count+=val(c);P.fresh=c.id;sfx('card');render();
+ net.playCard(mine.id,c.id).then(g=>{if(ON===mine)applyServer(g,true);}).catch(e=>{toast(e.message);refresh();}).finally(()=>{mine.busy=false;});
+}
+function renderWaiting(){
+ const link=net.inviteLink(ON.g.code);
+ $id('oppUI').innerHTML='';$id('handUI').innerHTML='';
+ $id('surfaceUI').innerHTML=`<div class="centre"><div class="panel invite"><span class="label">Send this link to a friend</span><input class="invite-link" readonly value="${link}" aria-label="Invite link"><span class="row"><button class="btn" data-act="copylink">Copy link</button>${navigator.share?'<button class="btn ghost" data-act="sharelink">Share</button>':''}</span><span class="note">The game starts when they open it. Take your turns whenever suits you both.</span></div></div>`;
+ $id('barUI').innerHTML='<span class="prompt">Waiting for a friend to join</span>';
+ $id('roundInfo').textContent='Friend game';
+ for(const w of ['p','c']){$id('score-'+w).textContent=0;$id('gain-'+w).textContent='';}
+}
+function copyLink(code){
+ const link=net.inviteLink(code||ON.g.code);
+ (navigator.clipboard?navigator.clipboard.writeText(link):Promise.reject()).then(()=>toast('Link copied')).catch(()=>{const i=document.querySelector('.invite-link');if(i){i.select();toast('Select the link and copy it');}});
+}
+function shareLink(code){navigator.share({title:'Lantern Lane',text:"Come and play cribbage with me on Lantern Lane",url:net.inviteLink(code||ON.g.code)}).catch(()=>{});}
+
+/* friend sheet on the title screen: start a game, join from a link, and your games */
+let inviteCode=new URLSearchParams(location.search).get('g');
+function openFriend(){showSheet('friendSheet');renderFriend();}
+const nameField=()=>`<label class="setting col"><span>Your name</span><input id="fName" maxlength="20" autocomplete="nickname" placeholder="So your friend knows it's you" value="${safeName(save.name)}"></label>`;
+function readName(){const n=safeName($id('fName')&&$id('fName').value);if(n){save.name=n;persist();}return n;}
+async function renderFriend(){
+ const body=$id('friendBody');
+ body.innerHTML='<p class="fnote">Connecting</p>';
+ try{
+  if(inviteCode){
+   const pv=await net.preview(inviteCode);
+   if(pv&&pv.seat==='yours'){inviteCode=null;clearInvite();return openOnline(pv.id);}
+   if(!pv||pv.seat!=='open'){inviteCode=null;clearInvite();
+    body.innerHTML=`<p class="fnote">${!pv?"That game link doesn't work. Ask your friend to send it again.":'This game already has two players.'}</p>`;
+    return renderGames(body,true).catch(()=>{});}
+   body.innerHTML=`<p class="fnote big"><b>${safeName(pv.host)}</b> has invited you to walk Lantern Lane.</p>${nameField()}<div class="menu"><button class="btn" id="fJoin">Join the game</button></div>`;
+   $id('fJoin').addEventListener('click',async()=>{
+    const n=readName();if(!n){$id('fName').focus();return toast('Add your name first');}
+    $id('fJoin').disabled=true;
+    try{const g=await net.joinGame(inviteCode,n,save.walker);inviteCode=null;clearInvite();openOnline(g.id,g);}
+    catch(e){toast(e.message);$id('fJoin').disabled=false;}
+   });
+   return;
+  }
+  body.innerHTML=`${nameField()}<div class="menu"><button class="btn" id="fNew">Start a game with a friend</button></div><p class="fnote">You'll get a link to send them. Take turns whenever suits you.</p>`;
+  $id('fNew').addEventListener('click',async()=>{
+   const n=readName();if(!n){$id('fName').focus();return toast('Add your name first');}
+   $id('fNew').disabled=true;
+   try{const r=await net.createGame(n,save.walker);openOnline(r.id);}catch(e){toast(e.message);$id('fNew').disabled=false;}
+  });
+  renderGames(body,false).catch(()=>{const n=document.createElement('p');n.className='fnote';n.textContent="Couldn't load your games just now.";body.append(n);});
+ }catch(e){body.innerHTML=`<p class="fnote">Couldn't reach friend play. Check your connection and try again.</p><div class="menu"><button class="btn" id="fRetry">Try again</button></div>`;$id('fRetry').addEventListener('click',renderFriend);}
+}
+async function renderGames(body,withStart){
+ const list=await net.myGames();
+ const wrap=document.createElement('div');wrap.className='games';
+ if(withStart){const b=document.createElement('div');b.className='menu';b.innerHTML='<button class="btn" id="fBack">Start your own game</button>';wrap.append(b);}
+ if(list.length){const h=document.createElement('h3');h.textContent='Your games';wrap.append(h);}
+ const LBL={you:'Your turn',them:'Their turn',join:'Waiting for them to join',over:'Finished'};
+ for(const x of list){
+  const row=document.createElement('div');row.className='game-row'+(x.turn==='you'?' yours':'');
+  const b=document.createElement('button');b.className='game-open';
+  const who=document.createElement('b');who.textContent=x.status==='waiting'?'Not joined yet':safeName(x.opp);
+  const sc=document.createElement('span');sc.textContent=x.status==='waiting'?'':x.status==='over'?(x.winner===x.me?`You won, ${x.mine} to ${x.theirs}`:`${x.theirs} to ${x.mine}`):`You ${x.mine}, them ${x.theirs}`;
+  const t=document.createElement('span');t.className='turn';t.textContent=LBL[x.turn]||'';
+  b.append(who,sc,t);b.addEventListener('click',()=>openOnline(x.id));row.append(b);
+  if(x.status==='waiting'){const c=document.createElement('button');c.className='btn ghost small';c.textContent='Copy link';c.addEventListener('click',()=>copyLink(x.code));row.append(c);}
+  wrap.append(row);
+ }
+ body.append(wrap);
+ if(withStart)$id('fBack').addEventListener('click',renderFriend);
+}
+function clearInvite(){const u=new URL(location.href);u.searchParams.delete('g');history.replaceState(null,'',u.pathname+u.search+u.hash);}
+$id('tFriend').addEventListener('click',openFriend);
 
 // apply saved choices
 setPlayerWalker(save.walker);setLevel(save.settings.winnie);applyGear(scene);
@@ -372,3 +586,4 @@ applySound('music',save.settings.music);applySound('sound',save.settings.sound);
 window.__cc={scene,get S(){return S},get lane(){return lane},nextShow,confirmDiscard,play,sayGo,addPts};
 placeUI();
 showTitle();
+if(inviteCode)openFriend();

@@ -14,6 +14,7 @@ import { sfx, initAudio, setAmbience } from './sound.js';
 import { makeCritters } from './critters.js';
 import { WEATHER, DIALS, pickWeather } from './weathers.js';
 import { MOMENTS } from './moments.js';
+import { NAME } from './cards.js';
 
 const LINES = {
   Fifteen: ['Fifteen two!', 'Fifteen, lovely.', 'Ooh, fifteen.'], '31': ['Thirty-one! Lovely.', 'Thirty-one, ta very much.'],
@@ -48,7 +49,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
   let lane = null, scale = 4, aw = 0, ah = 0, camX = 0, camY = 0, last = 0, L = null;
   let mode = 'stop', surfaceAlpha = 1, stop = { from: { p: 0, c: 0 }, hole: 0, biome: 'meadow' }, banked = { p: 0, c: 0 };
   let pos = { p: 0, c: 0 }, target = { p: 0, c: 0 }, stepAt = { p: 0, c: 0 }, walkDone = null;
-  let gear = { rug: 'tartan', lantern: 'gold' }, cloudX = 0, wxKind = 'fair', wx = { ...WEATHER.fair }, flash = 0, boltAt = 0, ripples = [], drops = [], mist = null, mistAmt = 0, ambientAt = performance.now() + 30000, surf = { key: '', cv: null }, titleY = -1, titleX = 0, looping = false, clouds = null, crit = null, parts = [], light = null, smokeAt = 0, moment = null, played = new Set(), prog = 0, dusk = 0, flies = [], glowCv = null, visited = new Set(['meadow']), bannerTimer = 0, speechTimer = 0, leaves = null;
+  let gear = { rug: 'tartan', lantern: 'gold' }, cloudX = 0, wxKind = 'fair', wx = { ...WEATHER.fair }, flash = 0, boltAt = 0, ripples = [], drops = [], mist = null, mistAmt = 0, ambientAt = performance.now() + 30000, surf = { key: '', cv: null }, titleY = -1, titleX = 0, looping = false, clouds = null, crit = null, parts = [], light = null, smokeAt = 0, moment = null, played = new Set(), prog = 0, dusk = 0, flies = [], glowCv = null, visited = new Set(['meadow']), bannerTimer = 0, speechTimer = 0, leaves = null, quiet = false;
 
   // ---- layout: where the lane, the surface, the hand and the action bar go on this screen.
   // u is the UI scale (1 at 1440x900); card widths are worked out here so the
@@ -124,7 +125,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     clearTimeout(bannerTimer); bannerTimer = setTimeout(() => { banner.hidden = true; }, ms);
   }
   function say(text, ms = 2400) {
-    if (mode !== 'stop' || !L) return;
+    if (mode !== 'stop' || !L || quiet) return;
     speech.textContent = text; speech.hidden = false;
     const s = L.seats[0]; speech.style.left = `${s.x}px`; speech.style.top = `${s.y - L.seatH - 6}px`;
     clearTimeout(speechTimer); speechTimer = setTimeout(() => { speech.hidden = true; }, ms);
@@ -136,11 +137,11 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     if (h > 0 && holes[h].biome !== holes[h - 1].biome) {
       const b = holes[h].biome;
       const B = BIOMES[b], first = !visited.has(b); visited.add(b);
-      showBanner(who === 'p' ? 'You are entering' : 'Winnie is entering', B.title, first ? B.line : '');
+      showBanner(who === 'p' ? 'You are entering' : `${NAME.c} is entering`, B.title, first ? B.line : '');
       if (first && b === 'forest') setTimeout(() => sfx('bell'), 900);
     }
     startMoment(h);
-    if (h === 121) { showBanner(who === 'p' ? 'You made it' : 'Winnie made it', 'Home!', '', 6000); sfx('win'); }
+    if (h === 121) { showBanner(who === 'p' ? 'You made it' : `${NAME.c} made it`, 'Home!', '', 6000); sfx('win'); }
   }
 
   // The first time anyone walks into a biome that has a moment, play it a few holes ahead.
@@ -288,7 +289,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
       const [lx, ly] = holeXY(banked[w]);
       const side = w === 'p' ? 9 : -9;
       list.push({ y: ly + 2, draw: () => lantern(c, lx + side - ix, ly + 2 - iy, w === 'p' ? LANTERNS[gear.lantern] || '#F2B63C' : '#B07AC8') });
-      ltags[w].textContent = `${w === 'p' ? 'You' : 'Winnie'} to ${banked[w]}`;
+      ltags[w].textContent = `${w === 'p' ? 'You' : NAME.c} to ${banked[w]}`;
       placeIn(ltags[w], lx + side, ly - 14, L.free);
     }
     if (moment) {
@@ -608,6 +609,8 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
       return new Promise((res) => { walkDone = res; });
     },
     say,
+    // Friend games: nobody chats from the other seat.
+    setQuiet(q) { quiet = q; if (q) speech.hidden = true; },
     // Menu backdrop: drift slowly down the lane with nobody on it.
     weather: () => WEATHER[wxKind].name,
     setWeather(k, now) { wxKind = k; if (now) Object.assign(wx, WEATHER[k]); },

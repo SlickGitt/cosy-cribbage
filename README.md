@@ -29,6 +29,15 @@ Scoring rules are covered by tests. Run them with Node 22 or later:
 
     node --test tests/*.test.mjs
 
+## Friend play
+Play a friend from the title screen. The game makes a link to send; whoever opens it joins, and you take turns whenever suits you. Nobody needs an account: each browser signs in quietly as an anonymous player.
+
+The server deals from a properly shuffled deck, keeps each hand private, checks every move, calls Go when a player can't play, and does all the scoring. The browser only shows what that player is allowed to see.
+
+- The production address uses the live Supabase project; previews and local copies use dev (see `src/online.js`).
+- Database changes go in numbered files in `supabase/`. Run each one in the SQL Editor of dev, test, then live.
+- `tests/db/simulate.mjs` checks the database scoring against `src/scoring.js` and plays full games between two players (needs a local Postgres; see the file header).
+
 ## Hosting
 Cloudflare Pages deploys `main` automatically: https://lantern-lane-5dw.pages.dev
 
@@ -60,6 +69,9 @@ Style trial: the meadow, forest, river and village are switched on (`ACTIVE` in 
 - `src/weathers.js` weather kinds and how they follow each other
 - `src/weather.js` falling leaves
 - `src/sound.js` synthesised effects and music
+- `src/online.js` friend play: signs in quietly, sends moves to the server and watches for the other player's moves
+- `src/vendor/` the Supabase browser library, loaded only when friend play is used
+- `supabase/001_friend_play.sql` the friend play database: tables, security rules, dealing, move checks and scoring
 
 ## Roadmap
 1. Vertical slice: table view, walk view, meadow and forest biomes, one weather type, one moment, basic sound

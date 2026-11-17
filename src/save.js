@@ -5,6 +5,7 @@ const STARTERS = ['bobble', 'flatcap', 'wellies', 'beret'];
 const fresh = () => ({
   v: 1,
   walker: 'bobble',
+  name: '',
   settings: { music: true, sound: true, winnie: 'normal' },
   stats: { games: 0, wins: 0, losses: 0, holes: 0, bestHand: 0, skunks: 0, doubleSkunks: 0, streak: 0, sharpWins: 0 },
   unlocked: [...STARTERS],
