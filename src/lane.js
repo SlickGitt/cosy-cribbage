@@ -128,7 +128,7 @@ export function generateLane(seed) {
   const laneDist = (x, y) => { let d = 1e9; for (const s of samples) { if (Math.abs(s[1] - y) > 80) continue; d = Math.min(d, Math.hypot(s[0] - x, s[1] - y)); } return d; };
 
   // Standing things are queued and drawn after the lane, sorted by y.
-  const items = [], afterPath = [], occ = [], objects = [], critters = [], shafts = [];
+  const items = [], afterPath = [], occ = [], objects = [], critters = [], shafts = [], waters = [];
   const add = (y, fn) => items.push([y, fn]);
   // Live scenery: a baked sprite at a base point, drawn each frame in depth order.
   const obj = (x, y, spr, o = {}) => { const ob = { x: Math.round(x), y: Math.round(y), s: spr, ph: rng.range(0, 6.28), shake: 0, ...o }; objects.push(ob); return ob; };
@@ -153,6 +153,7 @@ export function generateLane(seed) {
     const B = BIOMES[seg.biome], [t, b] = band(seg);
     const ctx = { c, rng, W, t, b, seg, area: (b - t) * W / 10000, add, laneAt, samples, obj, critter, free, near,
       shaft: (x, y) => shafts.push({ x, y, ph: rng.range(0, 6.28) }),
+      waterway: (ry, hw) => waters.push({ ry, hw, t, b }),
       after: (fn) => afterPath.push(fn), holeYs: holes.slice(seg.from, seg.to + 1).map((h) => h.y), water: null };
     // Is this footprint (w x h, standing on x, y) clear of the lane, signs, water and other things?
     ctx.spot = (x, y, pad, fp = [4, 4], maxD = Infinity) => {
@@ -240,7 +241,7 @@ export function generateLane(seed) {
   for (const [x, y, i] of signs) obj(x, y + 1, bake(24, 26, (cc) => A.signpost(cc, 0, -1, i, number)), { kind: 'sign' });
   obj(holes[0].x, holes[0].y + 3, bake(112, 24, (cc) => A.gate(cc, 0, 0)), { kind: 'gate' });
   obj(holes[0].x - 22, holes[0].y + 12, bake(40, 32, (cc) => A.fingerpost(cc, 0, 0, false)), { kind: 'sign' });
-  obj(home.x, home.y + 30, bake(66, 54, (cc) => A.cottage(cc, 0, 0, rng)), { kind: 'home', smoke: true });
+  obj(home.x, home.y + 30, bake(66, 54, (cc) => A.cottage(cc, 0, 0, rng)), { kind: 'home', smoke: true, glows: [[-15, -12], [15, -12]] });
 
   items.sort((a, b) => a[0] - b[0]).forEach(([, fn]) => fn());
   objects.sort((a, b) => a.y - b.y);
@@ -249,5 +250,5 @@ export function generateLane(seed) {
   const leaves = holes.map((h, i) => ({ x: h.x + rng.range(-6, 6), y: h.y + rng.range(-5, 5), col: i < 40 ? rng.pick(['#F0C050', '#E0A83A']) : i < 80 ? rng.pick(['#E0842E', '#D07030']) : rng.pick(['#C04A2A', '#A83A24']) }));
 
   const spotNear = (x0, y0) => { for (let i = 0; i < 40; i++) { const x = x0 + rng.range(-40, 40), y = y0 + rng.range(-20, 20); if (free(x, y)) return [x, y]; } return null; };
-  return { seed, canvas, height, holes, segs, biomeAt, leaves, objects, critters, shafts, free, spotNear };
+  return { seed, canvas, height, holes, segs, biomeAt, leaves, objects, critters, shafts, waters, free, spotNear };
 }

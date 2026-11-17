@@ -125,6 +125,7 @@ export const BIOMES = {
       }
       for (let i = 0; i < W / 2.5; i++) { const x = rng.range(0, W); rect(c, x, ry(x) + rng.range(-hw + 2, hw - 3), rng.int(2, 5), 1, rng.pick(['#8CB8D4', '#6A9AB8', '#B8D8EC'])); }
       ctx.water = (x, y) => Math.abs(y - ry(x)) < hw + 4;
+      ctx.waterway(ry, hw);
       // lily pads and fallen leaves floating
       for (let i = 0; i < area * 2; i++) { const x = rng.range(0, W), y = ry(x) + rng.range(-5, 5); if (Math.abs(x - laneAt(y)) > 20) S.lilypad(c, x, y, rng() < 0.3); }
       for (let i = 0; i < area * 4; i++) { const x = rng.range(0, W), y = ry(x) + rng.range(-7, 7); rect(c, x, y, 2, 1, rng.pick(['#D8702E', '#E8A040', '#B8442A'])); }
@@ -211,9 +212,9 @@ export const BIOMES = {
       const big = (key, w, h, fn) => sprite(key, w, h, fn);
       // the tea room and the pub first, then cottages along the lane
       const tea = spotNearLane(30, 30, [50, 36]);
-      if (tea) obj(tea[0], tea[1], big(`tearoom|${rng.int(0, 2)}`, 64, 48, (cc, r) => S.tearoom(cc, 0, 0, r)), { kind: 'house' });
+      if (tea) obj(tea[0], tea[1], big(`tearoom|${rng.int(0, 2)}`, 64, 48, (cc, r) => S.tearoom(cc, 0, 0, r)), { kind: 'house', ...homely(36, true) });
       const pb = spotNearLane(30, 40, [56, 36]);
-      if (pb) obj(pb[0], pb[1], big(`pub|${rng.int(0, 2)}`, 66, 48, (cc, r) => S.pub(cc, 0, 0, r)), { kind: 'house' });
+      if (pb) obj(pb[0], pb[1], big(`pub|${rng.int(0, 2)}`, 66, 48, (cc, r) => S.pub(cc, 0, 0, r)), { kind: 'house', ...homely(40, true) });
       // cottages lining the lane, each with a fenced front garden
       const { t, b, laneAt } = ctx;
       for (let y = t + 34; y < b - 4; y += rng.int(30, 38)) for (const dir of [-1, 1]) {
@@ -221,14 +222,14 @@ export const BIOMES = {
           if (off > 60 && rng() < 0.45) continue;
           const x = laneAt(y) + dir * off;
           if (!ctx.spot(x, y, 26, [40, 34])) continue;
-          obj(x, y, big(`house|${rng.int(0, 7)}`, 46, 46, (cc, r) => S.house(cc, 0, 0, r)), { kind: 'house' });
+          obj(x, y, big(`house|${rng.int(0, 7)}`, 46, 46, (cc, r) => S.house(cc, 0, 0, r)), { kind: 'house', ...homely(30, false) });
           if (ctx.spot(x, y + 8, 14, [38, 5])) {
             obj(x, y + 8, sprite('frontfence', 44, 12, (cc) => { S.picket(cc, -18, 0, 5); S.picket(cc, 4, 0, 5); }));
             for (let k = 0; k < 14; k++) { const fx = x + rng.range(-16, 16), fy = y + rng.range(2, 6); if (Math.abs(fx - x) > 3) rect(c, fx, fy, 1, 1, rng.pick(['#F2A0B8', '#E8603A', '#FFF4DC', '#FFD45E', '#B8A0E8', '#4E8A3A'])); }
           }
         }
       }
-      place(3, 12, 50, (x, y) => obj(x, y, sprite('lamp', 14, 26, (cc) => S.lamppost(cc, 0, 0, true))), [5, 16], 16);
+      place(3, 12, 50, (x, y) => obj(x, y, sprite('lamp', 14, 26, (cc) => S.lamppost(cc, 0, 0, true)), { kind: 'lamp', glows: [[0, -15]] }), [5, 16], 16);
       place(1, 14, 40, (x, y) => obj(x, y, sprite('phonebox', 14, 22, (cc) => S.phonebox(cc, 0, 0))), [10, 18], 16);
       place(1, 12, 40, (x, y) => obj(x, y, sprite('postbox', 10, 14, (cc) => S.postbox(cc, 0, 0))), [6, 10], 14);
       place(2, 14, 40, (x, y) => obj(x, y, sprite('bench', 18, 12, (cc) => S.bench(cc, 0, 0))), [14, 7], 20);
@@ -308,6 +309,12 @@ export const MIDDLE = ['forest', 'orchard', 'river', 'farm', 'moor', 'village', 
 export const ACTIVE = ['meadow', 'forest', 'river', 'village'];
 
 const TREE = { kind: 'tree', cover: true, sway: 1 }, BUSH = { kind: 'bush', cover: true };
+// A house's windows (lit at dusk), where the glow sits, and the top of its chimney.
+// Matches S.house: walls w wide, base at (0, 0).
+function homely(w, lit) {
+  const wins = [[-w / 2 + 3, -11], [w / 2 - 9, -11]];
+  return { wins, lit, glows: wins.map(([x, y]) => [x + 2, y + 2]), chimney: [w / 2 - 6, -32] };
+}
 const MEADOW_TREES = ['oakturn', 'beech', 'fieldmaple', 'birch', 'oak', 'cherry', 'sycamore', 'oakturn'];
 const FOREST_TREES = ['beech', 'oakturn', 'fieldmaple', 'beech', 'oak', 'cherry', 'sycamore', 'green', 'beech'];
 function treeSprite(set, rng) {

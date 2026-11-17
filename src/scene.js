@@ -12,6 +12,7 @@ import { makeRng } from './pixel.js';
 import { sfx, initAudio, setAmbience } from './sound.js';
 import { makeCritters } from './critters.js';
 import { WEATHER, DIALS, pickWeather } from './weathers.js';
+import { MOMENTS } from './moments.js';
 
 const LINES = {
   Fifteen: ['Fifteen two!', 'Fifteen, lovely.', 'Ooh, fifteen.'], '31': ['Thirty-one! Lovely.', 'Thirty-one, ta very much.'],
@@ -46,7 +47,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
   let lane = null, scale = 4, aw = 0, ah = 0, camX = 0, camY = 0, last = 0, L = null;
   let mode = 'stop', surfaceAlpha = 1, stop = { from: { p: 0, c: 0 }, hole: 0, biome: 'meadow' }, banked = { p: 0, c: 0 };
   let pos = { p: 0, c: 0 }, target = { p: 0, c: 0 }, stepAt = { p: 0, c: 0 }, walkDone = null;
-  let gear = { rug: 'tartan', lantern: 'gold' }, cloudX = 0, wxKind = 'fair', wx = { ...WEATHER.fair }, flash = 0, boltAt = 0, ripples = [], drops = [], mist = null, mistAmt = 0, ambientAt = performance.now() + 30000, surf = { key: '', cv: null }, titleY = -1, titleX = 0, looping = false, clouds = null, crit = null, parts = [], light = null, smokeAt = 0, deer = null, seenForest = false, visited = new Set(['meadow']), bannerTimer = 0, speechTimer = 0, leaves = null;
+  let gear = { rug: 'tartan', lantern: 'gold' }, cloudX = 0, wxKind = 'fair', wx = { ...WEATHER.fair }, flash = 0, boltAt = 0, ripples = [], drops = [], mist = null, mistAmt = 0, ambientAt = performance.now() + 30000, surf = { key: '', cv: null }, titleY = -1, titleX = 0, looping = false, clouds = null, crit = null, parts = [], light = null, smokeAt = 0, moment = null, played = new Set(), prog = 0, dusk = 0, flies = [], glowCv = null, visited = new Set(['meadow']), bannerTimer = 0, speechTimer = 0, leaves = null;
 
   // ---- layout: where the lane, the surface, the hand and the action bar go on this screen.
   // u is the UI scale (1 at 1440x900); card widths are worked out here so the
@@ -136,16 +137,27 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
       const B = BIOMES[b], first = !visited.has(b); visited.add(b);
       showBanner(who === 'p' ? 'You are entering' : 'Winnie is entering', B.title, first ? B.line : '');
       if (first && b === 'forest') setTimeout(() => sfx('bell'), 900);
-      if (b === 'forest' && !seenForest) {
-        seenForest = true;
-        const k = Math.min(121, h + 3), a = holes[Math.max(0, k - 1)], bb = holes[Math.min(121, k + 1)];
-        const ang = Math.atan2(bb.y - a.y, bb.x - a.x);
-        deer = { x: holes[k].x - Math.sin(ang) * 34 + 4, y: holes[k].y + Math.cos(ang) * 34, until: performance.now() + 7000 }; onFind('deer');
-        bubble.textContent = 'A deer stops to watch you pass.';
-        sfx('chime');
-      }
     }
+    startMoment(h);
     if (h === 121) { showBanner(who === 'p' ? 'You made it' : 'Winnie made it', 'Home!', '', 6000); sfx('win'); }
+  }
+
+  // The first time anyone walks into a biome that has a moment, play it a few holes ahead.
+  const side = (i, off) => {
+    const H0 = lane.holes, a = H0[Math.max(0, i - 1)], b = H0[Math.min(121, i + 1)], ang = Math.atan2(b.y - a.y, b.x - a.x);
+    return [H0[i].x - Math.sin(ang) * off + 4, H0[i].y + Math.cos(ang) * off];
+  };
+  function startMoment(h) {
+    const b = lane.holes[h].biome;
+    if (moment || played.has(b) || !MOMENTS[b] || h > 116) return;
+    played.add(b);
+    const at = Math.min(121, h + (b === 'meadow' ? 5 : 3));
+    const fade = (age, dur, inT = 0.5) => Math.max(0, Math.min(1, age / inT, (dur - age) / 0.8));
+    const waterNear = (y) => lane.waters.find((w) => y >= w.t - 30 && y <= w.b + 30) || null;
+    const m = MOMENTS[b]({ lane, at, sfx, find: onFind, side, fade, waterNear });
+    if (!m) return;
+    moment = { ...m, t0: performance.now(), m };
+    bubble.textContent = m.text;
   }
 
   function drawSurface(biome) {
@@ -193,6 +205,10 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
       if (!moving && walkDone && t > Math.max(stepAt.p, stepAt.c) + 500) { const d = walkDone; walkDone = null; d(); }
     }
     surfaceAlpha += ((mode === 'stop' ? 1 : 0) - surfaceAlpha) * Math.min(1, dt * 6);
+    // the afternoon wears on as the game goes: gold, then amber, then dusk on the green
+    const goalP = mode === 'title' ? Math.max(0, Math.min(1, (titleY - lane.holes[0].y) / (lane.holes[112].y - lane.holes[0].y))) : Math.max(pos.p, pos.c) / 121;
+    prog += (goalP - prog) * Math.min(1, dt * (mode === 'title' ? 3 : 0.4));
+    dusk = smooth(0.62, 1, prog);
 
     // camera
     let fx, fy, free;
@@ -238,6 +254,9 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     c.drawImage(lane.canvas, ix, iy, sw, sh, 0, 0, sw, sh);
     const walkedTo = mode === 'walk' ? Math.max(pos.p, pos.c) : Math.max(stop.from.p, stop.from.c);
     for (let i = 1; i <= walkedTo; i++) { const Lf = lane.leaves[i]; rect(c, Lf.x - ix, Lf.y - iy, 2, 1, Lf.col); }
+    shimmer(t, ix, iy);
+    const mAge = moment ? (t - moment.t0) / 1000 : 0;
+    if (moment) { moment.m.update.call(moment.m, mAge, dt, t); if (moment.m.under) moment.m.under(c, ix, iy, mAge); }
 
     // everything standing, in depth order: scenery, animals, walkers, lanterns
     const list = [], x0 = ix, y0 = iy, x1 = ix + aw, y1 = iy + ah;
@@ -259,9 +278,14 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
       ltags[w].textContent = `${w === 'p' ? 'You' : 'Winnie'} to ${banked[w]}`;
       placeIn(ltags[w], lx + side, ly - 14, L.free);
     }
-    if (deer) {
-      if (t > deer.until) { deer = null; bubble.hidden = true; }
-      else { list.push({ y: deer.y + 6, draw: () => A.deer(c, deer.x - ix, deer.y - iy) }); bubble.hidden = false; placeIn(bubble, deer.x + 6, deer.y - 12, mode === 'stop' ? L.free : { x: 0, y: L.top + 70 * L.u, w: L.W, h: L.H - L.top - 70 * L.u }); }
+    if (moment) {
+      if (mAge > moment.m.dur) { moment = null; bubble.hidden = true; }
+      else {
+        if (moment.m.ground) moment.m.ground(list, c, ix, iy, mAge, t);
+        const [bx, by] = moment.m.anchor();
+        bubble.hidden = mAge > moment.m.dur - 0.6;
+        placeIn(bubble, bx, by, mode === 'stop' ? L.free : { x: 0, y: L.top + 70 * L.u, w: L.W, h: L.H - L.top - 70 * L.u });
+      }
     }
     for (const w of ['c', 'p']) {
       const showW = !!walkersAt;
@@ -273,10 +297,15 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
       place(tags[w], x + ox, y - 23);
     }
     list.sort((a, b) => a.y - b.y).forEach((d) => d.draw(c, ix, iy));
+    if (moment && moment.m.sky) moment.m.sky(c, ix, iy, mAge, t);
 
     // particles: leaves shaken loose, puffs, chimney smoke
-    const home = lane.home !== undefined ? lane.home : (lane.home = lane.objects.find((o) => o.smoke) || null);
-    if (home && t > smokeAt && Math.abs(home.y - (iy + ah / 2)) < ah) { smokeAt = t + 450; parts.push({ x: home.x + 9, y: home.y - 43, vx: 3, vy: -6, life: 3, max: 3, col: '#E8E2D8', size: 2 }); }
+    if (!lane.chimneys) lane.chimneys = lane.objects.filter((o) => o.smoke || o.chimney).map((o) => ({ x: o.x + (o.smoke ? 9 : o.chimney[0]), y: o.y + (o.smoke ? -43 : o.chimney[1]), next: 0, gap: o.smoke ? 450 : 700 + o.ph * 120 }));
+    for (const ch of lane.chimneys) {
+      if (t < ch.next || ch.x < ix - 20 || ch.x > ix + aw + 20 || ch.y < iy - 40 || ch.y > iy + ah + 60) continue;
+      ch.next = t + ch.gap * (1 - dusk * 0.3);
+      parts.push({ x: ch.x + Math.random() * 2 - 1, y: ch.y, vx: 3 + wx.wind * 12, vy: -6, life: 3, max: 3, col: '#E8E2D8', size: 2 });
+    }
     parts = parts.filter((p) => (p.life -= dt) > 0);
     for (const p of parts) {
       p.ph = (p.ph || 0) + dt * 4; p.x += (p.vx + (p.leaf ? Math.sin(p.ph) * 8 : 0)) * dt; p.y += p.vy * dt; if (p.leaf && p.y < p.floor) p.vy = Math.min(p.vy + 30 * dt, 14); else if (p.leaf) p.vy = 0;
@@ -309,6 +338,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     if (wx.dark > 0.01) { c.fillStyle = `rgba(44,48,70,${(wx.dark * 0.3).toFixed(3)})`; c.fillRect(0, 0, aw, ah); }
     if (wx.sun > 0.01) { c.fillStyle = `rgba(255,214,140,${(wx.sun * 0.07).toFixed(3)})`; c.fillRect(0, 0, aw, ah); }
     if (wx.fog > 0.01) { c.fillStyle = `rgba(222,224,228,${(wx.fog * 0.38).toFixed(3)})`; c.fillRect(0, 0, aw, ah); }
+    evening(c, t, ix, iy, dt, near.biome);
 
     // the rest stop
     if (surfaceAlpha > 0.02) {
@@ -352,6 +382,73 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     requestAnimationFrame(frame);
   }
 
+  const smooth = (a, b, v) => { const k = Math.max(0, Math.min(1, (v - a) / (b - a))); return k * k * (3 - 2 * k); };
+  function litWindows(o, ix, iy) {
+    for (const [wx0, wy0] of o.wins) { const x = o.x + wx0 - ix, y = o.y + wy0 - iy; rect(c, x, y, 5, 4, '#FFD48A'); rect(c, x + 2, y, 1, 4, '#5A3622'); rect(c, x, y, 5, 1, '#F2A84A'); }
+  }
+  // Glints on the river: short bright strokes that come and go, warmer as the sun drops.
+  function shimmer(t, ix, iy) {
+    const col = dusk > 0.4 ? '#F8D8A8' : '#D8ECF6';
+    for (const w of lane.waters) {
+      if (w.b < iy || w.t > iy + ah) continue;
+      for (let k = 0; k < 60; k++) {
+        const ep = Math.floor(t / 700 + k * 0.37), r1 = hash(k * 31 + ep * 7), r2 = hash(k * 17 + ep * 13 + 5);
+        const x = ix + r1 * aw, y = Math.round(w.ry(x) + (r2 - 0.5) * (w.hw * 2 - 4));
+        if (Math.abs(x - laneX(y)) < 16) continue;
+        const ph = (t / 700 + k * 0.37) % 1, a = Math.sin(ph * Math.PI);
+        if (a < 0.3) continue;
+        c.globalAlpha = a * 0.7; rect(c, Math.round(x - ix), y - iy, a > 0.8 ? 3 : 2, 1, col);
+      }
+    }
+    c.globalAlpha = 1;
+  }
+  function hash(n) { n = Math.imul(n ^ 0x5bd1e995, 0x27d4eb2d); n ^= n >>> 15; n = Math.imul(n, 0x165667b1); return ((n ^ (n >>> 13)) >>> 0) / 4294967296; }
+  // The time of day: a golden wash, deepening to dusk; then lamps, windows and
+  // lanterns glow and fireflies come out in the fields.
+  function evening(c, t, ix, iy, dt, biome) {
+    const gold = smooth(0.1, 0.55, prog) * (1 - dusk);
+    if (gold > 0.01) {
+      c.save(); c.globalCompositeOperation = 'multiply'; c.fillStyle = `rgba(255,214,160,${(gold * 0.45).toFixed(3)})`; c.fillRect(0, 0, aw, ah);
+      c.globalCompositeOperation = 'soft-light'; c.fillStyle = `rgba(255,170,80,${(gold * 0.6).toFixed(3)})`; c.fillRect(0, 0, aw, ah); c.restore();
+    }
+    if (dusk > 0.01) {
+      c.save(); c.globalCompositeOperation = 'multiply';
+      const g = c.createLinearGradient(0, 0, 0, ah);
+      g.addColorStop(0, `rgba(168,136,204,${(dusk * 0.68).toFixed(3)})`); g.addColorStop(1, `rgba(86,104,186,${(dusk * 0.72).toFixed(3)})`);
+      c.fillStyle = g; c.fillRect(0, 0, aw, ah);
+      c.restore();
+      c.save(); c.globalCompositeOperation = 'soft-light'; const sg = c.createLinearGradient(0, 0, 0, ah * 0.6); sg.addColorStop(0, `rgba(255,150,110,${(dusk * 0.45).toFixed(3)})`); sg.addColorStop(1, 'rgba(255,150,110,0)'); c.fillStyle = sg; c.fillRect(0, 0, aw, ah * 0.6); c.restore();
+    }
+    const dark = Math.max(dusk, wx.dark * 0.7);
+    const glow = (x, y, r, a) => { if (!glowCv) glowCv = makeGlow(); c.globalAlpha = Math.min(1, a); c.drawImage(glowCv, Math.round(x - r - ix), Math.round(y - r - iy), r * 2, r * 2); };
+    c.save(); c.globalCompositeOperation = 'lighter';
+    if (dark > 0.05) for (const o of lane.objects) {
+      if (!o.glows || o.x < ix - 30 || o.x > ix + aw + 30 || o.y < iy - 40 || o.y > iy + ah + 40) continue;
+      if (o.wins && !o.lit && dark <= 0.15 + (o.ph / 6.28) * 0.45) continue;
+      const fl = 1 + Math.sin(t / 180 + o.ph * 5) * 0.06;
+      for (const [gx, gy] of o.glows) glow(o.x + gx, o.y + gy, o.kind === 'lamp' ? 14 : 9, dark * 0.75 * fl);
+    }
+    for (const w of ['p', 'c']) if (mode === 'stop' && banked[w] > stop.from[w]) { const [lx, ly] = holeXY(banked[w]); glow(lx + (w === 'p' ? 9 : -9), ly - 3, 12, 0.25 + dark * 0.6); }
+    // fireflies drift low over the grass once it is properly dusk
+    const want = dark > 0.35 && biome !== 'village' && mode !== 'title' ? 26 : 0;
+    while (flies.length < want) flies.push({ x: ix + Math.random() * aw, y: iy + Math.random() * ah, ph: Math.random() * 6.28, life: 0 });
+    if (flies.length > want) flies.length = want;
+    for (const f of flies) {
+      f.ph += dt; f.x += Math.sin(f.ph * 0.7) * dt * 5; f.y += Math.cos(f.ph * 0.5) * dt * 3;
+      if (f.x < ix - 10 || f.x > ix + aw + 10 || f.y < iy - 10 || f.y > iy + ah + 10) { f.x = ix + Math.random() * aw; f.y = iy + Math.random() * ah; }
+      const blink = Math.max(0, Math.sin(f.ph * 1.6)) ** 3 * Math.min(1, (dark - 0.35) * 4);
+      if (blink < 0.05) continue;
+      glow(f.x, f.y, 4, blink * 0.7); c.globalAlpha = blink; rect(c, Math.round(f.x - ix), Math.round(f.y - iy), 1, 1, '#E8F8A0');
+    }
+    c.restore(); c.globalAlpha = 1;
+  }
+  function makeGlow() {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 32;
+    const g = cv.getContext('2d'), r = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+    r.addColorStop(0, 'rgba(255,214,140,0.9)'); r.addColorStop(0.35, 'rgba(255,190,110,0.35)'); r.addColorStop(1, 'rgba(255,170,90,0)');
+    g.fillStyle = r; g.fillRect(0, 0, 32, 32); return cv;
+  }
+
   // Where the lane is across, at a given height.
   function laneX(y) {
     const H0 = lane.holes;
@@ -367,7 +464,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     if (o.sway === 1) dx = Math.round(Math.sin((t / 900) * fast + o.ph + o.x * 0.02) * 0.8 * gust);
     else if (o.sway === 2) dx = Math.round(Math.sin((t / 650) * fast + o.x * 0.08) * 0.9 * gust);
     if (o.shake) dx = Math.round(Math.sin(t / 40) * 2 * Math.min(1, o.shake * 2));
-    if (!dx) { c.drawImage(s.cv, bx, by); return; }
+    if (!dx) { c.drawImage(s.cv, bx, by); if (o.wins && !o.lit && dusk > 0.15 + (o.ph / 6.28) * 0.45) litWindows(o, ix, iy); return; }
     const split = Math.max(1, s.ay - (o.sway === 2 ? 3 : 11)), w = s.cv.width, h = s.cv.height;
     c.drawImage(s.cv, 0, split, w, h - split, bx, by + split, w, h - split);
     c.drawImage(s.cv, 0, 0, w, split, bx + dx, by, w, split);
@@ -465,10 +562,10 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
 
   return {
     layout: () => L,
-    get debug() { return { crit, camX, camY, scale, lane }; },
+    get debug() { return { crit, camX, camY, scale, lane, moment }; },
     relayout: layout,
     reset(newLane) {
-      lane = newLane; clouds = null; mist = null; deer = null; seenForest = false; visited = new Set([lane.holes[0].biome]); parts = [];
+      lane = newLane; clouds = null; mist = null; moment = null; played = new Set(); prog = 0; flies = []; visited = new Set([lane.holes[0].biome]); parts = [];
       crit = makeCritters(lane.critters, lane.objects, lane.seed, { found: onFind, say: sayAt, clear: (x, y) => lane.free(x, y), spot: (x, y) => lane.spotNear(x, y) }); bubble.hidden = true; banner.hidden = true; speech.hidden = true;
       pos = { p: 0, c: 0 }; target = { p: 0, c: 0 };
       this.setStop({ p: 0, c: 0 });
@@ -500,7 +597,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     setWeather(k, now) { wxKind = k; if (now) Object.assign(wx, WEATHER[k]); },
     setGear(g) { gear = { ...gear, ...g }; surf.key = ''; },
     resume() { if (mode === 'title') { mode = 'stop'; camX = camY = -1; } },
-    title() { wxKind = Math.random() < 0.5 ? 'fair' : 'sunny'; mode = 'title'; titleY = -1; camX = camY = -1; speech.hidden = true; banner.hidden = true; bubble.hidden = true; deer = null; },
+    title() { wxKind = Math.random() < 0.5 ? 'fair' : 'sunny'; mode = 'title'; titleY = -1; camX = camY = -1; speech.hidden = true; banner.hidden = true; bubble.hidden = true; moment = null; },
     react(label, who) {
       const key = label.startsWith('Run') ? 'Run' : label;
       const opts = (who === 'c' ? LINES : MINE)[key];

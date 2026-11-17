@@ -72,6 +72,8 @@ export const GUIDE = [
   { id: 'heron', name: 'Heron', hint: 'Still as a post by the water' },
   { id: 'cat', name: 'Village cat', hint: 'Sunning itself by a cottage' },
   { id: 'mushroom', name: 'Puffball', hint: 'In a forest clearing' },
+  { id: 'kingfisher', name: 'Kingfisher', hint: 'A flash of blue on the river' },
+  { id: 'starling', name: 'Starlings', hint: 'Swirling over the village at dusk' },
 ];
 const GUIDE_FEAT = { id: 'naturalist', tier: 'rare', name: 'Naturalist', how: 'Fill the field guide', reward: 'back:guide' };
 FEATS.splice(FEATS.findIndex((f) => f.tier === 'legendary'), 0, GUIDE_FEAT);

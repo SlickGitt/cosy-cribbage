@@ -90,6 +90,14 @@ export function sfx(name, n = 1) {
     o.connect(g); g.connect(sfxBus); o.start(t); o.stop(t + 0.3);
   } else if (name === 'chime') {
     [523, 659, 784].forEach((f, i) => tone(f, t + i * 0.12, 0.8, 'sine', 0.1));
+  } else if (name === 'burner' || name === 'murmur' || name === 'splash') {
+    // filtered noise: a balloon burner's roar, a flock's rushing wings, a plop
+    const [dur, type, fq, q, peak, rise] = { burner: [0.9, 'lowpass', 420, 0.8, 0.12, 0.08], murmur: [3.2, 'bandpass', 700, 0.5, 0.07, 1.2], splash: [0.35, 'bandpass', 1300, 1.2, 0.22, 0.01] }[name];
+    const s = ctx.createBufferSource(); s.buffer = noiseBuffer(dur + 0.05);
+    const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = fq; f.Q.value = q;
+    if (name === 'splash') f.frequency.exponentialRampToValueAtTime(500, t + 0.3);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + rise); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(sfxBus); s.start(t); s.stop(t + dur + 0.05);
   } else if (name === 'baa') {
     // a bleat: buzzy tone with a fast wobble through a vowel-ish filter
     const o = ctx.createOscillator(), lfo = ctx.createOscillator(), lg = ctx.createGain(), f = ctx.createBiquadFilter(), g = ctx.createGain();

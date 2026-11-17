@@ -10,7 +10,9 @@ Vertical slice:
 - Points scored light lanterns further along the lane; at the end of the round you both walk to them
 - Winnie reacts in speech bubbles
 - Lane generator: one seed makes a new lane each game. It starts in the meadow, ends on the village green, and passes through a shuffled run of forest, orchard, river (with a bridge and jetty), farm, moor, village (with a tea room), churchyard and town
-- One moment (a deer when you first enter the forest), falling leaves, synthesised sound and a lofi loop
+- Moments, the first time you walk into each biome: a hot-air balloon over the meadow, a deer in the forest, a kingfisher diving in the river, starlings swirling over the village
+- Time of day follows the game: a golden afternoon, then amber, then dusk near home, with windows and lamps coming on, chimney smoke, fireflies and lantern glow
+- Glints on the river, falling leaves, weather, synthesised sound and a lofi loop
 
 ## Run locally
 No build step. Serve the folder with any static server, for example:
@@ -42,6 +44,7 @@ then open http://localhost:8000.
 Style trial: the meadow, forest, river and village are switched on (`ACTIVE` in `src/biomes.js`) while the new look is tested. Click sheep, cows, birds, rabbits, squirrels, butterflies, trees, bushes and mushrooms in the lane view.
 - `src/scene.js` the full-screen scene: rest stop mode and walk mode
 - `src/reststop.js` rest stop surfaces, seated walkers and lanterns
+- `src/moments.js` the moments: what happens, where, and their art
 - `src/weathers.js` weather kinds and how they follow each other
 - `src/weather.js` falling leaves
 - `src/sound.js` synthesised effects and music

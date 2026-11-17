@@ -318,9 +318,11 @@ export function makeCritters(specs, objects, seed, hooks) {
 
 // A picture of an animal for the field guide.
 import * as A from './art.js';
+import { momentIcon } from './moments.js';
 export function critterIcon(kind) {
   const cv = document.createElement('canvas'); cv.className = 'px-sprite critter-icon';
   if (kind === 'deer') { cv.width = 18; cv.height = 18; A.deer(cv.getContext('2d'), 2, 9); return cv; }
+  const m = momentIcon(kind); if (m) return m;
   if (kind === 'mushroom') { cv.width = 14; cv.height = 10; A.mushrooms(cv.getContext('2d'), 3, 4, makeRng(3)); return cv; }
   const f = kind === 'butterfly' || kind === 'duck' ? 'a' : kind === 'squirrel' || kind === 'cat' ? 'sit' : 'stand', s = frame(kind, f, false);
   cv.width = s.cv.width; cv.height = s.cv.height; cv.getContext('2d').drawImage(s.cv, 0, 0);
