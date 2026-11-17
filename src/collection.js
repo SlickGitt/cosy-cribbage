@@ -88,7 +88,7 @@ function guide() {
 
 function gearTab(changed) {
   const box = el('div', 'col-body');
-  for (const [kind, title] of [['back', 'Card backs'], ['rug', 'Picnic blankets'], ['lantern', 'Lanterns']]) {
+  for (const [kind, title] of [['back', 'Card backs'], ['rug', 'Cloths'], ['lantern', 'Lanterns']]) {
     box.append(el('h3', 'tier-head', title));
     const row = el('div', 'gear-grid');
     for (const [id, r] of Object.entries(REWARDS).filter(([, r]) => r.kind === kind)) {

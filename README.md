@@ -6,7 +6,7 @@ A cosy, 16-bit style online cribbage game. Play against Winnie (the computer) or
 Vertical slice:
 - Full cribbage rules against Winnie, the computer
 - Full-screen layout with no scrolling
-- Rest stops: each round is played beside the lane on a surface that matches the biome (picnic blanket, tree slab, jetty, straw bale, granite slab, tea room tablecloth, deckchair rug and more), with you and Winnie seated at it
+- Rest stops: each round is played beside the lane on a surface that matches the biome (picnic blanket, tree slab, jetty, straw bale, granite slab, tea room tablecloth, deckchair rug and more), with you and Winnie seated at it. Your cloth (from the Collection) is the whole blanket in the meadow and is laid over the surface everywhere else
 - Points scored light lanterns further along the lane; at the end of the round you both walk to them
 - Winnie reacts in speech bubbles
 - Lane generator: one seed makes a new lane each game. It starts in the meadow, ends on the village green, and passes through a shuffled run of forest, orchard, river (with a bridge and jetty), farm, moor, village (with a tea room), churchyard and town

@@ -1,5 +1,5 @@
 // The game scene: one full-screen pixel canvas showing the lane.
-// "Stop" mode: you and Winnie sit at a rest stop beside the lane (a picnic blanket in
+// "Stop" mode: you and Winnie sit at a rest stop beside the lane (your blanket in
 // the meadow, a tree stump in the forest). Points scored this round light lanterns
 // further along the lane. "Walk" mode: at the end of the round you both get up and
 // walk to your lanterns.
@@ -171,16 +171,27 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
   }
   function paintSurface(c, biome, x, y, w, h) {
     const B = BIOMES[biome] || BIOMES.meadow, rng = makeRng(stop.hole * 7 + 3);
+    // your cloth: a whole picnic blanket in the meadow, laid over the biome's own
+    // surface everywhere else, with the planks, slab or straw showing round it
+    const yours = (x, y, w, h) => {
+      if (gear.rug === 'tartan') tartan(c, x, y, w, h);
+      else if (gear.rug === 'welsh') welsh(c, x, y, w, h);
+      else if (gear.rug === 'patchwork') patchwork(c, x, y, w, h, makeRng(stop.hole * 7 + 3));
+      else gingham(c, x, y, w, h, RUGS[gear.rug] || RUGS.red);
+    };
     if (B.surface === 'slab') stumpTable(c, x, y, w, h);
     else if (B.surface === 'planks') planks(c, x, y, w, h);
     else if (B.surface === 'straw') straw(c, x, y, w, h, rng);
     else if (B.surface === 'stone') stone(c, x, y, w, h, rng);
     else if (B.surface === 'cloth') cloth(c, x, y, w, h);
     else if (B.surface === 'stripes') stripes(c, x, y, w, h);
-    else if (biome === 'meadow' && gear.rug === 'tartan') tartan(c, x, y, w, h);
-    else if (biome === 'meadow' && gear.rug === 'welsh') welsh(c, x, y, w, h);
-    else if (biome === 'meadow' && gear.rug === 'patchwork') patchwork(c, x, y, w, h, rng);
-    else gingham(c, x, y, w, h, biome === 'meadow' ? RUGS[gear.rug] || B.rug : B.rug);
+    if (biome === 'meadow') yours(x, y, w, h);
+    else {
+      if (B.surface === 'rug') gingham(c, x, y, w, h, B.rug);
+      // a runner across your side of the table, under the cards you play
+      const mx = Math.max(12, Math.round(w * 0.07)), top = y + Math.round(L.oppH / scale) + 2, bot = y + h - 7;
+      yours(x + mx, top, w - mx * 2, Math.max(20, bot - top));
+    }
     // something set down in the empty corner beside you
     prop(c, B.prop, Math.round(Math.min(x + w * 0.9 - 8, x + w - 32)), y + 6, rng);
     for (const st of L.seats) seated(c, st.who, st.x / scale, st.y / scale);
