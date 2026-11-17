@@ -88,11 +88,19 @@ export function sfx(name, n = 1) {
     o.frequency.setValueAtTime(420, t); o.frequency.linearRampToValueAtTime(620, t + 0.12); o.frequency.linearRampToValueAtTime(520, t + 0.22);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.12, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.26);
     o.connect(g); g.connect(sfxBus); o.start(t); o.stop(t + 0.3);
+  } else if (name === 'croak') {
+    // a low, rattly toad croak
+    const o = ctx.createOscillator(), am = ctx.createOscillator(), ag = ctx.createGain(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(140, t); o.frequency.linearRampToValueAtTime(115, t + 0.35);
+    am.frequency.value = 38; ag.gain.value = 0.5; am.connect(ag);
+    f.type = 'bandpass'; f.frequency.value = 520; f.Q.value = 2;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.25, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.38); ag.connect(g.gain);
+    o.connect(f); f.connect(g); g.connect(sfxBus); o.start(t); am.start(t); o.stop(t + 0.4); am.stop(t + 0.4);
   } else if (name === 'chime') {
     [523, 659, 784].forEach((f, i) => tone(f, t + i * 0.12, 0.8, 'sine', 0.1));
-  } else if (name === 'burner' || name === 'murmur' || name === 'splash') {
+  } else if (name === 'burner' || name === 'murmur' || name === 'splash' || name === 'paddle') {
     // filtered noise: a balloon burner's roar, a flock's rushing wings, a plop
-    const [dur, type, fq, q, peak, rise] = { burner: [0.9, 'lowpass', 420, 0.8, 0.12, 0.08], murmur: [3.2, 'bandpass', 700, 0.5, 0.07, 1.2], splash: [0.35, 'bandpass', 1300, 1.2, 0.22, 0.01] }[name];
+    const [dur, type, fq, q, peak, rise] = { burner: [0.9, 'lowpass', 420, 0.8, 0.12, 0.08], murmur: [3.2, 'bandpass', 700, 0.5, 0.07, 1.2], splash: [0.35, 'bandpass', 1300, 1.2, 0.22, 0.01], paddle: [0.3, 'bandpass', 800, 0.9, 0.08, 0.06] }[name];
     const s = ctx.createBufferSource(); s.buffer = noiseBuffer(dur + 0.05);
     const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = fq; f.Q.value = q;
     if (name === 'splash') f.frequency.exponentialRampToValueAtTime(500, t + 0.3);
@@ -126,6 +134,14 @@ export function sfx(name, n = 1) {
     const beats = name === 'flap' ? 4 : name === 'scurry' ? 5 : 7;
     for (let i = 0; i < beats; i++) { const s0 = t + (i * dur) / beats; g.gain.exponentialRampToValueAtTime(name === 'rustle' ? 0.12 : 0.18, s0 + 0.01); g.gain.exponentialRampToValueAtTime(0.004, s0 + dur / beats); }
     s.connect(f); f.connect(g); g.connect(sfxBus); s.start(t); s.stop(t + dur + 0.05);
+  } else if (name === 'croak') {
+    // a low, rattly toad croak
+    const o = ctx.createOscillator(), am = ctx.createOscillator(), ag = ctx.createGain(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(140, t); o.frequency.linearRampToValueAtTime(115, t + 0.35);
+    am.frequency.value = 38; ag.gain.value = 0.5; am.connect(ag);
+    f.type = 'bandpass'; f.frequency.value = 520; f.Q.value = 2;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.25, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.38); ag.connect(g.gain);
+    o.connect(f); f.connect(g); g.connect(sfxBus); o.start(t); am.start(t); o.stop(t + 0.4); am.stop(t + 0.4);
   } else if (name === 'chime') {
     [784, 1047, 1319].forEach((f, i) => tone(f, t + i * 0.09, 0.5, 'sine', 0.06));
   } else if (name === 'pop') {

@@ -6,7 +6,8 @@
 import { rect, oval } from './pixel.js';
 import * as A from './art.js';
 import { makeLeaves } from './weather.js';
-import { gingham, tartan, patchwork, welsh, stumpTable, planks, straw, stone, cloth, stripes, prop, seated, lantern } from './reststop.js';
+import { gingham, tartan, patchwork, welsh, stumpTable, planks, straw, stone, cloth, stripes, hull, prop, seated, lantern } from './reststop.js';
+import { rowing } from './lake.js';
 import { BIOMES } from './biomes.js';
 import { makeRng } from './pixel.js';
 import { sfx, initAudio, setAmbience } from './sound.js';
@@ -130,7 +131,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
   }
 
   function onEnter(who, h) {
-    sfx('step');
+    sfx(lane.holes[h].wet ? 'paddle' : 'step');
     const holes = lane.holes;
     if (h > 0 && holes[h].biome !== holes[h - 1].biome) {
       const b = holes[h].biome;
@@ -153,7 +154,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     played.add(b);
     const at = Math.min(121, h + (b === 'meadow' ? 5 : 3));
     const fade = (age, dur, inT = 0.5) => Math.max(0, Math.min(1, age / inT, (dur - age) / 0.8));
-    const waterNear = (y) => lane.waters.find((w) => y >= w.t - 30 && y <= w.b + 30) || null;
+    const waterNear = (y) => lane.waters.find((w) => w.ry && y >= w.t - 30 && y <= w.b + 30) || null;
     const m = MOMENTS[b]({ lane, at, sfx, find: onFind, side, fade, waterNear });
     if (!m) return;
     moment = { ...m, t0: performance.now(), m };
@@ -181,6 +182,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     };
     if (B.surface === 'slab') stumpTable(c, x, y, w, h);
     else if (B.surface === 'planks') planks(c, x, y, w, h);
+    else if (B.surface === 'hull') hull(c, x, y, w, h);
     else if (B.surface === 'straw') straw(c, x, y, w, h, rng);
     else if (B.surface === 'stone') stone(c, x, y, w, h, rng);
     else if (B.surface === 'cloth') cloth(c, x, y, w, h);
@@ -304,8 +306,10 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
       if (!showW) continue;
       const [x, y] = holeXY(pos[w]), ox = w === 'c' ? -4 : 4;
       const bob = pos[w] < target[w] ? Math.floor(t / 120) % 2 : Math.floor(t / 700 + (w === 'c' ? 1 : 0)) % 2;
-      list.push({ y: y + 1, draw: () => A.walker(c, w, x + ox - ix, y - iy + 1, bob) });
-      place(tags[w], x + ox, y - 23);
+      const wet = lane.holes[Math.round(pos[w])].wet, ox2 = w === 'c' ? -9 : 9;
+      if (wet) { const moving = pos[w] < target[w]; list.push({ y: y + 4, draw: () => rowing(c, x + ox2 - ix, y - iy, t, moving, (cc, bx, by) => A.walker(cc, w, bx, by, 0)) }); }
+      else list.push({ y: y + 1, draw: () => A.walker(c, w, x + ox - ix, y - iy + 1, bob) });
+      place(tags[w], x + (wet ? ox2 : ox), y - (wet ? 16 : 23));
     }
     list.sort((a, b) => a.y - b.y).forEach((d) => d.draw(c, ix, iy));
     if (moment && moment.m.sky) moment.m.sky(c, ix, iy, mAge, t);
@@ -402,9 +406,10 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     const col = dusk > 0.4 ? '#F8D8A8' : '#D8ECF6';
     for (const w of lane.waters) {
       if (w.b < iy || w.t > iy + ah) continue;
-      for (let k = 0; k < 60; k++) {
+      for (let k = 0; k < (w.inside ? 110 : 60); k++) {
         const ep = Math.floor(t / 700 + k * 0.37), r1 = hash(k * 31 + ep * 7), r2 = hash(k * 17 + ep * 13 + 5);
-        const x = ix + r1 * aw, y = Math.round(w.ry(x) + (r2 - 0.5) * (w.hw * 2 - 4));
+        const x = w.inside ? w.x0 + r1 * (w.x1 - w.x0) : ix + r1 * aw, y = Math.round(w.inside ? w.t + r2 * (w.b - w.t) : w.ry(x) + (r2 - 0.5) * (w.hw * 2 - 4));
+        if (w.inside && (!w.inside(x, y) || x < ix || x > ix + aw)) continue;
         if (Math.abs(x - laneX(y)) < 16) continue;
         const ph = (t / 700 + k * 0.37) % 1, a = Math.sin(ph * Math.PI);
         if (a < 0.3) continue;

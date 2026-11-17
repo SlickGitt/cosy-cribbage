@@ -97,6 +97,20 @@ export function stone(c, x, y, w, h, rng) {
 }
 
 // A tea room tablecloth: white with a scalloped edge and a little pattern.
+// The bottom of a rowing boat, moored on the lake: rounded ends, boards and seats.
+export function hull(c, x, y, w, h) {
+  rect(c, x - 8, y + h - 3, w + 16, 9, '#2E5A7A'); rect(c, x - 8, y + h + 1, w + 16, 1, '#9CCBE8');
+  for (let i = 0; i < w + 16; i += 7) rect(c, x - 8 + i, y + h + 3 + (i % 3), 3, 1, '#4E7A9E');
+  const r = Math.min(Math.round(h / 2), 22);
+  rrect(c, x + 3, y + 5, w, h, r, 'rgba(20,10,10,0.3)');
+  rrect(c, x - 2, y - 2, w + 4, h + 4, r + 2, '#5A3622');
+  rrect(c, x, y, w, h, r, '#8A5A32');
+  rrect(c, x + 3, y + 3, w - 6, h - 6, Math.max(2, r - 3), '#B07E46');
+  for (let j = 9; j < h - 6; j += 7) { const d = Math.abs(j - h / 2) / (h / 2), ins = Math.round(r * (1 - Math.sqrt(Math.max(0, 1 - d * d))) * 0.9) + 4; rect(c, x + ins, y + j, w - ins * 2, 1, '#8A5A32'); }
+  for (const sx of [x + Math.round(w * 0.1), x + w - Math.round(w * 0.1) - 6]) { rect(c, sx, y + 3, 6, h - 6, '#7A4E2A'); rect(c, sx, y + 3, 6, 1, '#A8743E'); rect(c, sx + 1, y + 4, 1, h - 8, '#8A5A32'); }
+  rect(c, x + r, y - 2, w - r * 2, 1, '#D0A06A');
+  for (const ox of [x + Math.round(w * 0.3), x + Math.round(w * 0.7)]) { rect(c, ox, y - 4, 3, 3, '#2E2420'); rect(c, ox, y + h + 1, 3, 3, '#2E2420'); }
+}
 export function cloth(c, x, y, w, h) {
   rect(c, x + 3, y + 4, w, h, 'rgba(20,10,10,0.3)');
   rect(c, x, y, w, h, '#FBF4E6');
@@ -138,6 +152,14 @@ export function prop(c, kind, x, y, rng) {
     rect(c, x + 2, y + 13, 8, 2, S);
     rect(c, x + 3, y, 6, 13, '#3E6A4E'); rect(c, x + 3, y - 2, 6, 2, '#C8C0B0'); rect(c, x + 4, y + 1, 1, 11, '#5E8A6A');
     rect(c, x - 6, y + 8, 6, 4, '#C8C0B0'); rect(c, x - 5, y + 8, 4, 1, '#8A5A34');
+  } else if (kind === 'rod') {
+    // a fishing rod propped up, its line in the water, and a tin of bait
+    rect(c, x + 2, y + 13, 16, 2, S);
+    for (let i = 0; i < 18; i++) rect(c, x + 16 - i, y + 12 - Math.round(i * 0.9), 1, 1, i < 5 ? '#5A3622' : '#8A6A3E');
+    rect(c, x + 13, y + 9, 3, 3, '#5A6A78'); rect(c, x + 14, y + 10, 1, 1, '#B0BEC8');
+    for (let i = 0; i < 6; i++) rect(c, x - 2, y - 4 + i * 2, 1, 1, 'rgba(240,240,240,0.7)');
+    rect(c, x - 3, y + 8, 3, 2, '#E8402F'); rect(c, x - 3, y + 8, 3, 1, '#FFF4DC');
+    rect(c, x - 12, y + 8, 7, 5, '#8A9AA8'); rect(c, x - 12, y + 8, 7, 1, '#5A6A78'); rect(c, x - 10, y + 7, 2, 1, '#C87A8A');
   } else if (kind === 'bucket') {
     rect(c, x + 1, y + 13, 14, 2, S);
     rect(c, x + 2, y + 3, 11, 10, '#8A9AA8'); rect(c, x + 2, y + 3, 11, 2, '#2E5A7A'); rect(c, x + 3, y + 6, 2, 6, '#B0BEC8');

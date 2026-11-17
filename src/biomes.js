@@ -6,6 +6,7 @@ import { rect, oval } from './pixel.js';
 import * as A from './art.js';
 import * as S from './scenery.js';
 import { sprite } from './sprites.js';
+import { lakeShape, paintLake, weepingWillow } from './lake.js';
 
 const DIRT = { path: ['#7A5634', '#C49464', '#D6A874'], specks: ['#A07A50', '#E8C08A'] };
 const DARK_DIRT = { path: ['#4A3420', '#8A6440', '#9E7650'], specks: ['#6B4A2E', '#C8402F', '#E8862E'] };
@@ -161,6 +162,82 @@ export const BIOMES = {
       place(rng.int(1, 2), 14, 12, (x, y) => critter({ kind: rng() < 0.5 ? 'bird' : 'magpie', x, y }), [4, 4], 40);
     },
   },
+  lake: {
+    title: 'The lake', line: 'All aboard. Mind the toads.', surface: 'hull', prop: 'rod',
+    ground: '#7CA84E', patches: ['#88B456', '#6E9A44'], ...DIRT,
+    tones: ['#5E863A', '#688E3E', '#729642', '#7E9E48', '#8AA44E'],
+    pathTones: ['#7A5634', '#94693F', '#AC7E4E', '#C2945E', '#D4AA72'],
+    decorate(ctx) {
+      const { c, rng, W, t, b, area, after, laneAt, samples, obj, critter, place } = ctx;
+      grassBlades(ctx, area * 25, ['#9CB860', '#4E7A34', '#C8A050']);
+      // a wide lake across the lane, with a strip of shore above and below
+      const top = t + rng.int(20, 26), bot = b - rng.int(20, 26), cy = (top + bot) / 2, ry = (bot - top) / 2;
+      const rx = rng.range(180, 240), cx = Math.max(rx * 0.7, Math.min(W - rx * 0.7, laneAt(cy) + rng.range(-50, 50)));
+      const L = lakeShape(cx, cy, rx, ry, rng);
+      ctx.water = (x, y) => L.inside(x, y, 5);
+      // where the lane goes into the water and comes out again: a jetty at each
+      const wet = samples.filter(([x, y]) => y > t && y < b && L.inside(x, y));
+      const inAt = wet.length ? wet[0] : null, outAt = wet.length ? wet[wet.length - 1] : null;
+      const onJetty = (x, y) => [inAt, outAt].some((j) => j && Math.abs(y - j[1]) < 9 && Math.abs(x - j[0]) < 8);
+      ctx.lake(L, onJetty);
+      after(() => {
+        paintLake(c, L);
+        for (let i = 0; i < L.rx * 1.2; i++) {
+          const x = cx + rng.range(-rx, rx), y = cy + rng.range(-ry, ry);
+          if (L.d(x, y) < 0.9) rect(c, x, y, rng.int(2, 4), 1, rng.pick(['#8CB8D4', '#6A9AB8', '#B8D8EC']));
+        }
+        // lily pads and leaves floating, kept clear of the pegs
+        for (let i = 0; i < area * 5; i++) {
+          const x = cx + rng.range(-rx, rx), y = cy + rng.range(-ry, ry), d = L.d(x, y);
+          if (d < 0.97 && d > 0.45 && Math.abs(x - laneAt(y)) > 16) S.lilypad(c, x, y, rng() < 0.25);
+        }
+        for (let i = 0; i < area * 4; i++) { const x = cx + rng.range(-rx, rx), y = cy + rng.range(-ry, ry); if (L.d(x, y) < 0.95) rect(c, x, y, 2, 1, rng.pick(['#D8702E', '#E8A040', '#B8442A'])); }
+        for (const j of [inAt, outAt]) {
+          if (!j) continue;
+          const down = j === inAt, len = 16, jt = down ? Math.round(j[1]) - 6 : Math.round(j[1]) - 10;
+          S.jetty(c, Math.round(j[0]), jt, len);
+        }
+      });
+      // moored boats by the first jetty, and one out on the water
+      if (inAt) { const side = inAt[0] > W / 2 ? -1 : 1; obj(inAt[0] + side * 17, inAt[1] + 4, sprite('boat', 24, 14, (cc) => S.rowboat(cc, 0, -2))); }
+      for (let k = 0; k < 20; k++) { const x = cx + rng.range(-rx * 0.8, rx * 0.8), y = cy + rng.range(-ry * 0.5, ry * 0.5); if (L.d(x, y) < 0.75 && Math.abs(x - laneAt(y)) > 60) { obj(x, y, sprite('boat', 24, 14, (cc) => S.rowboat(cc, 0, -2))); break; } }
+      // reeds and bulrushes round the edge
+      for (let i = 0; i < area * 7; i++) {
+        const a = rng.range(0, 6.28), r = rng.range(0.96, 1.06);
+        const x = cx + Math.cos(a) * rx * r, y = cy + Math.sin(a) * ry * r;
+        if (L.d(x, y) < 0.95 || L.d(x, y) > 1.08 || y < t + 4 || y > b - 2 || Math.abs(x - laneAt(y)) < 18 || onJetty(x, y)) continue;
+        obj(x, y, sprite(`reeds|${rng.int(0, 3)}`, 14, 14, (cc, r2) => S.reeds(cc, 0, 0, r2)), { sway: 2 });
+      }
+      // weeping willows leaning over the banks
+      for (let i = 0; i < area * 3; i++) {
+        const a = rng.range(0, 6.28), x = cx + Math.cos(a) * rx * 1.12, y = cy + Math.sin(a) * ry * 1.12 + 8;
+        if (y < t + 8 || y > b - 2 || !ctx.spot(x, y, 22, [22, 10])) continue;
+        obj(x, y, sprite(`weeping|${rng.int(0, 3)}`, 44, 46, (cc, r) => weepingWillow(cc, 0, 0, r)), TREE);
+      }
+      place(area * 0.4, 22, 30, (x, y) => obj(x, y, sprite(`weeping|${rng.int(0, 3)}`, 44, 46, (cc, r) => weepingWillow(cc, 0, 0, r)), TREE), [22, 26]);
+      place(area * 0.6, 16, 14, (x, y) => obj(x, y, bushSprite(rng.pick(['hawthorn', 'bracken']), rng), BUSH), [14, 10]);
+      place(area * 1.2, 12, 10, (x, y) => obj(x, y, tuftSprite(rng), { sway: 2 }), [6, 6], 50);
+      // toads on the bank and on the bigger pads; a pair of swans out on the water
+      for (let i = 0, n = 0; i < 60 && n < 3; i++) {
+        const a = rng.range(0, 6.28), x = cx + Math.cos(a) * rx * 1.04, y = cy + Math.sin(a) * ry * 1.04 + 2;
+        if (Math.abs(x - laneAt(y)) < 24 || y < t + 4 || y > b - 2 || L.d(x, y) < 1) continue;
+        critter({ kind: 'toad', x, y }); n++;
+      }
+      for (let i = 0, n = 0; i < 60 && n < 2; i++) {
+        const x = cx + rng.range(-rx * 0.8, rx * 0.8), y = cy + rng.range(-ry * 0.6, ry * 0.6);
+        if (L.d(x, y) > 0.8 || Math.abs(x - laneAt(y)) < 26) continue;
+        after(() => { oval(c, x, y + 1, 5, 3, '#3E7A34'); oval(c, x, y, 4, 2, '#5E9A42'); rect(c, x + 2, y - 2, 2, 1, '#3E6A84'); });
+        critter({ kind: 'toad', x, y, pad: true }); n++;
+      }
+      for (let k = 0; k < 40; k++) {
+        const x = cx + rng.range(-rx * 0.6, rx * 0.6), y = cy + rng.range(-ry * 0.4, ry * 0.4);
+        if (L.d(x - 40, y) > 0.8 || L.d(x + 40, y) > 0.8 || Math.abs(x - laneAt(y)) < 70) continue;
+        for (let i = 0; i < 2; i++) critter({ kind: 'swan', x: x + i * 9, y: y + i * 3, water: () => y + i * 3, off: 0 });
+        break;
+      }
+      place(rng.int(1, 2), 14, 12, (x, y) => critter({ kind: rng() < 0.5 ? 'bird' : 'magpie', x, y }), [4, 4], 40);
+    },
+  },
   farm: {
     title: 'The farm', line: 'Something smells of hay.', surface: 'straw', prop: 'churn',
     ground: '#8EA84A', patches: ['#9AB454', '#80983E'], ...DIRT,
@@ -304,9 +381,9 @@ export const BIOMES = {
   },
 };
 
-export const MIDDLE = ['forest', 'orchard', 'river', 'farm', 'moor', 'village', 'churchyard', 'town'];
+export const MIDDLE = ['forest', 'orchard', 'river', 'lake', 'farm', 'moor', 'village', 'churchyard', 'town'];
 // Biomes switched on. While the new style is tried out, only the restyled ones are used.
-export const ACTIVE = ['meadow', 'forest', 'river', 'village'];
+export const ACTIVE = ['meadow', 'forest', 'river', 'lake', 'village'];
 
 const TREE = { kind: 'tree', cover: true, sway: 1 }, BUSH = { kind: 'bush', cover: true };
 // A house's windows (lit at dusk), where the glow sits, and the top of its chimney.

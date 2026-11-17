@@ -9,6 +9,12 @@ import { sprite } from './sprites.js';
 import * as A from './art.js';
 
 const INK = '#2B1D24';
+// a ripple: just the outline of an ellipse, so it works on any water
+function ring(c, x, y, rx, ry, col) {
+  if (rx < 1) return;
+  c.fillStyle = col; const n = Math.max(8, Math.round(rx * 3));
+  for (let i = 0; i < n; i++) { const a = (i / n) * 6.283; c.fillRect(Math.round(x + Math.cos(a) * rx), Math.round(y + Math.sin(a) * ry), 1, 1); }
+}
 
 // ---------- art ----------
 function balloonArt(c) {
@@ -140,12 +146,55 @@ export const MOMENTS = {
         list.push({ y: perch[1] + 3, draw: () => { rect(c, perch[0] - ix, perch[1] - iy, 1, 6, '#6B5A2E'); rect(c, perch[0] - 1 - ix, perch[1] + 2 - iy, 1, 4, '#4E6A2E'); rect(c, perch[0] + 1 - ix, perch[1] - 2 - iy, 1, 3, '#8A7A3E'); } });
         if (age > 2.5 && age < 3.6) {
           const r = (age - 2.5) * 10;
-          list.push({ y: hit[1], draw: () => { c.globalAlpha = Math.max(0, 1 - (age - 2.5)); oval(c, hit[0] - ix, hit[1] + 1 - iy, Math.round(r), Math.max(1, Math.round(r / 3)), 'rgba(220,236,246,0.7)'); oval(c, hit[0] - ix, hit[1] + 1 - iy, Math.max(0, Math.round(r) - 1), Math.max(0, Math.round(r / 3) - 1), 'rgba(46,86,112,1)'); c.globalAlpha = 1; } });
+          list.push({ y: hit[1], draw: () => { c.globalAlpha = Math.max(0, 1 - (age - 2.5)); ring(c, hit[0] - ix, hit[1] + 1 - iy, r, Math.max(1, r / 3), 'rgba(220,236,246,0.8)'); c.globalAlpha = 1; } });
         }
         list.push({ y: hit[1] + 2, draw: () => { for (const s of splash) if (s.life > 0) rect(c, Math.round(s.x - ix), Math.round(s.y - iy), 1, 1, '#D8ECF6'); } });
         if (pose === 'hidden') return;
         const s = kfSprite(pose, pose === 'fish' || pose === 'perch' ? flip : !flip), a = ctx.fade(age, dur);
         list.push({ y: perch[1] + 4, draw: () => { c.globalAlpha = a; c.drawImage(s.cv, Math.round(kx - s.ax - ix), Math.round(ky - s.ay - iy)); c.globalAlpha = 1; } });
+      },
+    };
+  },
+
+  lake(ctx) {
+    // a fish leaps out beside the boats and drops back with a plop
+    const H = ctx.lane.holes, lk = ctx.lane.waters.find((w) => w.inside);
+    if (!lk) return null;
+    let at = ctx.at; while (at < 121 && !H[at].wet) at++;
+    if (!H[at].wet) return null;
+    let sx = null, sy = null;
+    for (const off of [22, -22, 30, -30, 16, -16]) { const [x, y] = ctx.side(at, off); if (lk.inside(x, y) && lk.inside(x + 14, y)) { sx = x; sy = y; break; } }
+    if (sx === null) return null;
+    const dir = sx > H[at].x ? 1 : -1, dur = 6.5, rings = [];
+    let fx = sx, fy = sy, z = 0, ang = 0, out = false, plopped = false;
+    ctx.sfx('splash');
+    return {
+      text: 'A fish leaps beside the boat!', dur,
+      update(age) {
+        if (age < 0.4) { if (!rings.length) rings.push({ x: sx, y: sy, a: 0 }); }
+        const k = (age - 0.4) / 0.9;
+        out = k > 0 && k < 1;
+        if (out) { fx = sx + dir * k * 14; fy = sy; z = Math.sin(k * Math.PI) * 12; ang = k; }
+        if (k >= 1 && !plopped) { plopped = true; rings.push({ x: sx + dir * 14, y: sy, a: age }); ctx.sfx('splash'); }
+      },
+      anchor: () => [sx + dir * 7, sy - 18],
+      ground(list, c, ix, iy, age) {
+        for (const r of rings) {
+          const e = age - r.a, rr = e * 9;
+          if (e > 1.6) continue;
+          list.push({ y: r.y - 1, draw: () => { c.globalAlpha = Math.max(0, 1 - e / 1.6); ring(c, r.x - ix, r.y - iy, rr, Math.max(1, rr / 3), 'rgba(220,236,246,0.85)'); if (rr > 4) ring(c, r.x - ix, r.y - iy, rr * 0.55, Math.max(1, rr / 5.5), 'rgba(220,236,246,0.5)'); c.globalAlpha = 1; } });
+        }
+        if (!out) return;
+        list.push({ y: fy + 1, draw: () => {
+          const x = Math.round(fx - ix), y = Math.round(fy - z - iy), up = ang < 0.5;
+          // a little silver fish, nose up then nose down
+          rect(c, x - 2, y - 1, 5, 2, '#B8C8D2'); rect(c, x - 2, y - 1, 5, 1, '#E2ECF2');
+          rect(c, x + (dir > 0 ? 3 : -3), y + (up ? -1 : 0), 1, 1, '#B8C8D2');
+          rect(c, x + (dir > 0 ? -3 : 3), y + (up ? 0 : -1), 1, 2, '#8A9AA8'); rect(c, x + (dir > 0 ? -4 : 4), y + (up ? 1 : -2), 1, 2, '#8A9AA8');
+          rect(c, x + (dir > 0 ? 2 : -2), y - 1, 1, 1, '#2B1D24');
+          c.fillStyle = 'rgba(220,236,246,0.8)'; c.fillRect(Math.round(fx - ix) - dir * 3, Math.round(fy - z * 0.6 - iy), 1, 1);
+          oval(c, Math.round(fx - ix), Math.round(fy - iy), 2, 1, 'rgba(20,40,50,0.25)');
+        } });
       },
     };
   },

@@ -6,6 +6,7 @@ import * as S from './scenery.js';
 import { BIOMES, MIDDLE, ACTIVE } from './biomes.js';
 import { paintGround, paintPath } from './ground.js';
 import { bake, sprite } from './sprites.js';
+import { lilyPeg } from './lake.js';
 
 export { BIOMES };
 export const W = 720;            // world width in art pixels; the lane winds through the middle
@@ -18,15 +19,20 @@ function planBiomes(rng) {
     // while only some biomes are on: start somewhere random, wander through the
     // others with no stretch repeated back to back, and come home through the village
     const mids = ACTIVE.filter((b) => b !== 'village');
-    const segs = []; let h = 0, prev = null, rivers = 0;
+    const segs = []; let h = 0, prev = null, rivers = 0, lakes = 0;
     const end = ACTIVE.includes('village') ? 121 - rng.int(11, 15) : 122;
     const queue = mids.slice();
     while (h < end) {
-      const weighted = (opts) => { const w = { meadow: 3, forest: 3, river: 1.2 }, list = opts.filter((x) => x !== prev && !(x === 'river' && rivers >= 2)); let r = rng() * list.reduce((a, x) => a + (w[x] || 1), 0); for (const x of list) { r -= w[x] || 1; if (r <= 0) return x; } return list[0]; };
-      let b = h === 0 ? queue.splice(rng.int(0, queue.length - 1), 1)[0] : queue.length ? queue.splice(rng.int(0, queue.length - 1), 1)[0] : weighted(mids);
+      const weighted = (opts) => { const w = { meadow: 3, forest: 3, river: 1.2, lake: 1 }, list = opts.filter((x) => x !== prev && !(x === 'river' && rivers >= 2) && !(x === 'lake' && lakes >= 1) && !((x === 'lake' || x === 'river') && (prev === 'lake' || prev === 'river'))); let r = rng() * list.reduce((a, x) => a + (w[x] || 1), 0); for (const x of list) { r -= w[x] || 1; if (r <= 0) return x; } return list[0]; };
+      const wetty = (x) => x === 'lake' || x === 'river';
+      const pickQ = (ok) => { const i = queue.findIndex(ok); return i < 0 ? null : queue.splice(i, 1)[0]; };
+      for (let i = queue.length - 1; i > 0; i--) { const j = rng.int(0, i); [queue[i], queue[j]] = [queue[j], queue[i]]; }
+      let b = queue.length ? pickQ((x) => !(h === 0 && x === 'lake') && !(wetty(x) && wetty(prev))) : null;
+      if (!b) b = weighted(h === 0 ? mids.filter((x) => x !== 'lake') : mids);
       if (b === prev) b = weighted(mids);
       if (b === 'river') rivers++;
-      let len = rng.int(11, 17); if (end - (h + len) < 8) len = end - h;
+      if (b === 'lake') lakes++;
+      let len = b === 'lake' ? rng.int(14, 18) : rng.int(11, 17); if (end - (h + len) < 8) len = end - h;
       segs.push({ biome: b, from: h, to: Math.min(121, h + len - 1) }); h += len; prev = b;
     }
     if (end <= 121) segs.push({ biome: 'village', from: end, to: 121 });
@@ -128,7 +134,7 @@ export function generateLane(seed) {
   const laneDist = (x, y) => { let d = 1e9; for (const s of samples) { if (Math.abs(s[1] - y) > 80) continue; d = Math.min(d, Math.hypot(s[0] - x, s[1] - y)); } return d; };
 
   // Standing things are queued and drawn after the lane, sorted by y.
-  const items = [], afterPath = [], occ = [], objects = [], critters = [], shafts = [], waters = [];
+  const items = [], afterPath = [], occ = [], objects = [], critters = [], shafts = [], waters = [], lakes = [];
   const add = (y, fn) => items.push([y, fn]);
   // Live scenery: a baked sprite at a base point, drawn each frame in depth order.
   const obj = (x, y, spr, o = {}) => { const ob = { x: Math.round(x), y: Math.round(y), s: spr, ph: rng.range(0, 6.28), shake: 0, ...o }; objects.push(ob); return ob; };
@@ -154,6 +160,7 @@ export function generateLane(seed) {
     const ctx = { c, rng, W, t, b, seg, area: (b - t) * W / 10000, add, laneAt, samples, obj, critter, free, near,
       shaft: (x, y) => shafts.push({ x, y, ph: rng.range(0, 6.28) }),
       waterway: (ry, hw) => waters.push({ ry, hw, t, b }),
+      lake: (shape, dry) => { lakes.push({ shape, dry }); waters.push({ inside: (x, y) => shape.d(x, y) < 0.93, x0: shape.cx - shape.rx, x1: shape.cx + shape.rx, t: shape.cy - shape.ry, b: shape.cy + shape.ry }); },
       after: (fn) => afterPath.push(fn), holeYs: holes.slice(seg.from, seg.to + 1).map((h) => h.y), water: null };
     // Is this footprint (w x h, standing on x, y) clear of the lane, signs, water and other things?
     ctx.spot = (x, y, pad, fp = [4, 4], maxD = Infinity) => {
@@ -233,6 +240,8 @@ export function generateLane(seed) {
   holes.forEach((h, i) => {
     if (i === 0) return;
     const big = i % 5 === 0;
+    // out on the lake the holes are lily pads, and you row between them
+    if (lakes.some((lk) => lk.shape.inside(h.x, h.y) && !lk.dry(h.x, h.y))) { h.wet = true; lilyPeg(c, h.x, h.y, big); return; }
     rect(c, h.x - (big ? 2 : 1.5) - 0.5, h.y - (big ? 2 : 1.5) - 0.5, big ? 5 : 4, big ? 5 : 4, '#E8C08A');
     rect(c, h.x - (big ? 1.5 : 1), h.y - (big ? 1.5 : 1), big ? 4 : 3, big ? 4 : 3, '#4A3020');
   });
