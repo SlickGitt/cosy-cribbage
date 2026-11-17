@@ -185,7 +185,7 @@ body.on-title .topbar,body.on-title .opp-ui,body.on-title .surface-ui,body.on-ti
 .title-art{display:flex;gap:1.2rem;align-items:flex-end;margin-bottom:.2rem}
 .px-sprite{image-rendering:pixelated;display:block}
 .title-art .px-sprite{width:3.75rem;height:7.5rem}
-.logo{margin:0;font-family:Fell,Georgia,serif;font-weight:400;font-size:3.2rem;line-height:1.05;letter-spacing:0;color:#F2D488;text-shadow:0 .18rem 0 #1A2A20}
+.logo{margin:0;white-space:nowrap;font-family:Fell,Georgia,serif;font-weight:400;font-size:3.2rem;line-height:1.05;letter-spacing:0;color:#F2D488;text-shadow:0 .18rem 0 #1A2A20}
 .tagline{margin:0 0 .6rem;font-size:1.15rem;color:var(--muted)}
 .menu{display:flex;flex-direction:column;gap:.6rem;width:100%}
 .menu .btn{width:100%}
@@ -290,6 +290,8 @@ body.portrait .toasts{top:8.4rem;left:50%;transform:translateX(-50%);align-items
 .logo-sign{position:relative;margin:.9rem 0 .2rem;padding:.55rem 1.3rem .75rem;background:#2E4A3A;border:var(--bw) solid var(--ink);border-radius:.4rem;box-shadow:inset 0 0 0 3px #2E4A3A,inset 0 0 0 5px #C8A24A,0 .25rem 0 var(--ink)}
 .logo-sign::before,.logo-sign::after{content:"";position:absolute;top:-1rem;width:3px;height:1rem;background:repeating-linear-gradient(#8A8272 0 3px,#4A4238 3px 5px)}
 .logo-sign::before{left:18%}.logo-sign::after{right:18%}
+.logo-sub{display:block;margin-top:.25rem;font-family:Fell,Georgia,serif;font-style:italic;font-size:1.15rem;color:#E8D8B0;text-align:center;text-shadow:0 .1rem 0 #1A2A20}
+body.portrait .logo-sub{font-size:1rem}
 .titlechip .title{font-family:Fell,Georgia,serif;font-size:1.55rem;letter-spacing:0;line-height:1.1;color:#F2D488}
 .lane-banner .big{font-family:Fell,Georgia,serif;font-size:2.1rem;letter-spacing:0;line-height:1.15}
 body.portrait .logo{font-size:2.7rem}

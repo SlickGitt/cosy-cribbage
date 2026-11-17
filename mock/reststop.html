@@ -42,7 +42,7 @@ const ov = document.getElementById('ov');
 const put = (html, x, y, extra = '') => { ov.insertAdjacentHTML('beforeend', `<div style="left:${x}px;top:${y}px;${extra}">${html}</div>`); };
 const fan = (cards, cw, lifts = []) => `<div class="held" style="--cw:${cw}px">${cards.map((k, i) => { const n = cards.length, a = (i - (n - 1) / 2) * 4, l = lifts.includes(i) ? -22 : Math.abs(i - (n - 1) / 2) * 5; return card(k[0], k[1], lifts.includes(i) ? 'sel' : '', `transform:translateY(${l}px) rotate(${a}deg);transform-origin:50% 120%;${i ? '' : 'margin-left:0'}`); }).join('')}</div>`;
 const hud = (sub, you, win) => {
-  put(`<div class="titlechip" style="position:static"><span class="title">Cosy Cribbage</span><span class="seed">Lane 4271</span></div>`, 14, 14);
+  put(`<div class="titlechip" style="position:static"><span class="title">Lantern Lane</span><span class="seed">Lane 4271</span></div>`, 14, 14);
   put(`<div class="roundchip"><div class="r">Round 4 · your crib</div><div class="s">${sub}</div></div>`, W / 2, 14, 'transform:translateX(-50%)');
   put(`<div class="chiprow"><div class="hudchip you">You <b>${you[0]}</b>${you[1] ? `<small>+${you[1]}</small>` : ''}</div><div class="hudchip">Winnie <b>${win[0]}</b>${win[1] ? `<small>+${win[1]}</small>` : ''}</div></div>`, W - 14, 14, 'transform:translateX(-100%)');
 };
@@ -96,7 +96,7 @@ if (v === 'meadow' || v === 'forest') {
   drawRestStop(c, { aw, ah, biome: 'meadow', seed: 5, lane, surface, seats: [[45, 91], [85, 91]], walked: 34,
     flags: [{ who: 'p', x: fy.x, y: fy.y - 6, dots: lane.holes.filter((h) => h.n > 34 && h.n < 40).map((h) => [h.x - 1, h.y - 1]) }, { who: 'c', x: fw.x, y: fw.y + 14, dots: [] }],
     nextBiome: { biome: 'forest', rect: { x: 108, y: 0, w: 30, h: 70 } }, keepClear: [{ x: -10, y: 196, w: 150, h: 120 }] });
-  put(`<div class="titlechip" style="position:static"><span class="title">Cosy Cribbage</span></div>`, 10, 10);
+  put(`<div class="titlechip" style="position:static"><span class="title">Lantern Lane</span></div>`, 10, 10);
   put(`<div class="chiprow" style="transform:none"><div class="hudchip you" style="font-size:13px">You <b style="font-size:18px">34</b><small>+6</small></div><div class="hudchip" style="font-size:13px">Winnie <b style="font-size:18px">31</b><small>+2</small></div></div>`, 10, 58);
   put(`<div class="flaglabel" style="background:var(--lamp);font-size:12px;transform:translate(-100%,-100%)">You walk to 40</div>`, W - 8, S(fy.y) - 44);
   const bx = S(surface.x), by = S(surface.y), tcw = 58;

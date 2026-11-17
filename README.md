@@ -1,6 +1,8 @@
-# Cosy Cribbage
+# Lantern Lane
 
-A cosy, 16-bit style online cribbage game. Play against Winnie (the computer) or with friends, on a randomly generated lane through autumn countryside.
+*A cosy cribbage game.*
+
+A 16-bit style online cribbage game. Play against Winnie (the computer) or with friends, on a randomly generated lane through autumn countryside.
 
 ## Status
 Vertical slice:
