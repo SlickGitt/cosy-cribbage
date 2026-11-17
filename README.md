@@ -24,6 +24,14 @@ No build step. Serve the folder with any static server, for example:
 
 then open http://localhost:8000.
 
+## Tests
+Scoring rules are covered by tests. Run them with Node 22 or later:
+
+    node --test tests/*.test.mjs
+
+## Hosting
+Cloudflare Pages deploys `main` automatically: https://lantern-lane-5dw.pages.dev
+
 ## Structure
 - `index.html` page shell
 - `styles/main.css` styles
