@@ -325,3 +325,6 @@ body.on-title .dialog{top:50%;right:auto;left:50%;transform:translate(-50%,-50%)
 .panel.invite .label{font-size:1.3rem;color:var(--lamp)}
 .panel.invite .note{color:var(--muted);font-size:1rem}
 .panel.invite .row{display:flex;gap:.5rem}
+body.portrait .panel.invite{padding:.7rem .8rem;gap:.45rem}
+body.portrait .panel.invite .note{display:none}
+body.portrait .invite-link{font-size:1rem}

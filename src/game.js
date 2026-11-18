@@ -389,13 +389,13 @@ function toast(text){const t=document.createElement('div');t.className='toast';t
 function closeOnline(){
  if(!ON)return;
  if(ON.unwatch)ON.unwatch();
- ON=null;NAME.c='Winnie';WALKERS.c=WALKERS.winnie;scene.setQuiet(false);document.body.classList.remove('online');
+ ON=null;NAME.c='Winnie';WALKERS.c=WALKERS.winnie;$id('name-c').textContent='Winnie';scene.setQuiet(false);document.body.classList.remove('online');
 }
 async function openOnline(id,first){
  closeOnline();gen++;paused=false;held=[];
  ON={id,me:null,ver:-1,g:null,busy:false,pending:null,replaying:false,unwatch:null,stopRound:null,showSeen:+(store.get('ll-seen-'+id)||0)};
  const mine=ON;
- hideTitle();document.body.classList.remove('walking','finished');document.body.classList.add('online');scene.setQuiet(true);
+ hideTitle();document.body.classList.remove('walking','finished');document.body.classList.add('online');scene.setQuiet(true);WALKERS.c=WALKERS.bobble;
  try{
   const g=first||await net.getGame(id);
   if(!g)throw new Error("That game isn't available");
@@ -413,7 +413,7 @@ async function refresh(){
  if(!ON)return;
  if(ON.fetching){ON.again=true;return;}
  const mine=ON;ON.fetching=true;
- try{const g=await net.getGame(mine.id);if(g&&ON===mine)applyServer(g,true);}catch(e){}
+ try{const g=await net.getGame(mine.id);if(g&&ON===mine)applyServer(g,true);}catch(e){console.error(e);}
  finally{mine.fetching=false;if(mine.again&&ON===mine){mine.again=false;refresh();}}
 }
 function applyServer(g,animate){
@@ -424,6 +424,7 @@ function applyServer(g,animate){
  ON.ver=g.version;ON.g=g;
  const op=g.me==='a'?'b':'a';
  if(g['name_'+op]){NAME.c=safeName(g['name_'+op])||'Your friend';WALKERS.c=WALKERS[g['walker_'+op]]||WALKERS.bobble;}
+ $id('name-c').textContent=g['name_'+op]?NAME.c:'Friend';
  if(g.show&&g.show.round>ON.showSeen&&(g.round>g.show.round||g.status==='over'))return replayShow(g,animate&&fresh);
  buildState(g,animate&&fresh);
 }
@@ -485,8 +486,7 @@ function replayShow(g,anim){
   res:{items:st.items.map(i=>({label:i.label,pts:i.pts,cards:i.cards.map(cardOf)})),total:st.total}}));
  S.kept={[steps[0].who]:steps[0].cards,[steps[1].who]:steps[1].cards};S.crib=steps[2].cards;
  S.peg=null;S.prompt='';S.oppN=null;S.phase='show';S.show={step:-1,steps};
- render();
- later(nextShow,anim?1200:300);
+ nextShow();
 }
 function showDone(){
  markSeen(ON.showRound);ON.replaying=false;
@@ -504,18 +504,18 @@ function endOnline(g,anim){
 function discardOnline(){
  if(ON.busy)return;ON.busy=true;const ids=[...S.sel],mine=ON;
  sfx('card');S.hand.p=S.hand.p.filter(c=>!ids.includes(c.id));S.sel=[];S.phase='cut';S.prompt='Sending to the crib';S.crib=[...S.crib,null,null];render();
- net.discard(mine.id,ids).then(g=>{if(ON===mine)applyServer(g,true);}).catch(e=>{toast(e.message);refresh();}).finally(()=>{mine.busy=false;});
+ net.discard(mine.id,ids).then(g=>{if(ON===mine)applyServer(g,true);}).catch(e=>{console.error(e);toast(e.message);refresh();}).finally(()=>{mine.busy=false;});
 }
 function playOnline(c){
  if(ON.busy)return;ON.busy=true;const P=S.peg,mine=ON;
  P.busy=true;P.hand.p=P.hand.p.filter(x=>x!==c);P.pile.push({card:c,who:'p'});P.count+=val(c);P.fresh=c.id;sfx('card');render();
- net.playCard(mine.id,c.id).then(g=>{if(ON===mine)applyServer(g,true);}).catch(e=>{toast(e.message);refresh();}).finally(()=>{mine.busy=false;});
+ net.playCard(mine.id,c.id).then(g=>{if(ON===mine)applyServer(g,true);}).catch(e=>{console.error(e);toast(e.message);refresh();}).finally(()=>{mine.busy=false;});
 }
 function renderWaiting(){
  const link=net.inviteLink(ON.g.code);
  $id('oppUI').innerHTML='';$id('handUI').innerHTML='';
- $id('surfaceUI').innerHTML=`<div class="centre"><div class="panel invite"><span class="label">Send this link to a friend</span><input class="invite-link" readonly value="${link}" aria-label="Invite link"><span class="row"><button class="btn" data-act="copylink">Copy link</button>${navigator.share?'<button class="btn ghost" data-act="sharelink">Share</button>':''}</span><span class="note">The game starts when they open it. Take your turns whenever suits you both.</span></div></div>`;
- $id('barUI').innerHTML='<span class="prompt">Waiting for a friend to join</span>';
+ $id('surfaceUI').innerHTML=`<div class="centre"><div class="panel invite"><span class="label">Waiting for a friend. Send them this link</span><input class="invite-link" readonly value="${link}" aria-label="Invite link"><span class="row"><button class="btn" data-act="copylink">Copy link</button>${navigator.share?'<button class="btn ghost" data-act="sharelink">Share</button>':''}</span><span class="note">The game starts when they open it. Take your turns whenever suits you both.</span></div></div>`;
+ $id('barUI').innerHTML='';
  $id('roundInfo').textContent='Friend game';
  for(const w of ['p','c']){$id('score-'+w).textContent=0;$id('gain-'+w).textContent='';}
 }
