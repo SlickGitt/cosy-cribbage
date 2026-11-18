@@ -98,7 +98,9 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
       hand = { x: fw, y: Math.round(barY + barH), w: RW, h: Math.round(H - barY - barH) };
     }
     L = { W, H, u, portrait, top, free, surface, hand, bar, cw, ch, oppH: oppH(cw), seatH,
-      seats: [{ who: 'c', x: surface.x + surface.w * 0.25, y: surface.y + 4 }, { who: 'p', x: surface.x + surface.w * 0.75, y: surface.y + 4 }] };
+      // Winnie or your friend across the rug; you on the near edge, back to us, by the deck
+      seats: [{ who: 'c', x: surface.x + surface.w * 0.25, y: surface.y + 4 },
+        { who: 'p', x: surface.x + Math.max(16 * u, surface.w * 0.035), y: surface.y + surface.h + Math.round(seatH * 0.8), back: true }] };
     return L;
   }
 
@@ -164,7 +166,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
 
   function drawSurface(biome) {
     const s = L.surface, x = Math.round(s.x / scale), y = Math.round(s.y / scale), w = Math.round(s.w / scale), h = Math.round(s.h / scale);
-    const key = [biome, x, y, w, h, aw, ah, stop.hole, A.WALKERS.p.name, gear.rug, gear.boat].join('|');
+    const key = [biome, x, y, w, h, aw, ah, stop.hole, A.WALKERS.p.name, A.WALKERS.c.name, gear.rug, gear.boat].join('|');
     if (surf.key !== key) {
       surf.key = key; surf.cv = document.createElement('canvas'); surf.cv.width = aw; surf.cv.height = ah;
       paintSurface(surf.cv.getContext('2d'), biome, x, y, w, h);
@@ -197,7 +199,7 @@ export function createScene({ canvas, hud, onFind = () => {} }) {
     }
     // something set down in the empty corner beside you
     prop(c, B.prop, Math.round(Math.min(x + w * 0.9 - 8, x + w - 32)), y + 6, rng);
-    for (const st of L.seats) seated(c, st.who, st.x / scale, st.y / scale);
+    for (const st of L.seats) seated(c, st.who, st.x / scale, st.y / scale, st.back);
   }
 
   function frame(t) {

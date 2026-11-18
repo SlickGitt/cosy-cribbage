@@ -41,14 +41,15 @@ create table if not exists public.games (
   walker_a text,
   walker_b text,
   status text not null default 'waiting',    -- waiting, active, over
-  phase text,                                -- discard, peg, done
+  phase text,                                -- cut, discard, peg, done
   round int not null default 0,
   dealer text,                               -- 'a' or 'b'
   score_a int not null default 0,
   score_b int not null default 0,
   from_a int not null default 0,             -- scores at the start of this round
   from_b int not null default 0,
-  cut jsonb,                                 -- the cut for first deal
+  cut jsonb not null default '{}',           -- each player's cut for first deal
+  cut_tie jsonb,                             -- the last tied cut, so both can see why it was cut again
   discarded jsonb not null default '{"a":false,"b":false}',
   crib_n int not null default 0,
   starter text,
@@ -60,6 +61,10 @@ create table if not exists public.games (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+-- for databases set up before the cut was interactive
+alter table public.games alter column cut set default '{}';
+update public.games set cut = '{}' where cut is null;
+alter table public.games alter column cut set not null;
 create index if not exists games_player_a on public.games (player_a);
 create index if not exists games_player_b on public.games (player_b);
 
@@ -73,8 +78,11 @@ create table if not exists ll.hands (
 create table if not exists ll.secrets (
   game uuid primary key references public.games on delete cascade,
   deck text[] not null default '{}',
-  crib text[] not null default '{}'
+  crib text[] not null default '{}',
+  cut_deck text[]                            -- the deck the players cut from
 );
+alter table ll.secrets add column if not exists cut_deck text[];
+alter table public.games add column if not exists cut_tie jsonb;
 -- Every deal, kept for the honest deck record.
 create table if not exists ll.deals (
   game uuid not null references public.games on delete cascade,
@@ -281,7 +289,7 @@ begin
   steps := steps || jsonb_build_object('who', g.dealer, 'crib', true, 'cards', to_jsonb(cr), 'items', res->'items', 'total', res->'total');
   update public.games set show = jsonb_build_object('round', g.round, 'starter', g.starter, 'dealer', g.dealer,
     'before', jsonb_build_object('a', g.score_a, 'b', g.score_b),
-    'from', jsonb_build_object('a', g.from_a, 'b', g.from_b), 'steps', steps)
+    'from', jsonb_build_object('a', g.from_a, 'b', g.from_b), 'peg', g.peg, 'steps', steps)
   where id = gid;
   perform ll.ev(gid, jsonb_build_object('kind', 'show', 'round', g.round));
   for st in select * from jsonb_array_elements(steps) loop
@@ -372,9 +380,10 @@ begin
     for i in 0..7 loop c := c || substr(alpha, 1 + get_byte(b, i) % length(alpha), 1); end loop;
     exit when not exists (select 1 from public.games where code = c);
   end loop;
-  insert into public.games (code, seed, player_a, name_a, walker_a)
-  values (c, 1000 + floor(random() * 9000)::int, uid, ll.clean_name(p_name), ll.clean_walker(p_walker))
+  insert into public.games (code, seed, player_a, name_a, walker_a, phase)
+  values (c, 1000 + floor(random() * 9000)::int, uid, ll.clean_name(p_name), ll.clean_walker(p_walker), 'cut')
   returning id into gid;
+  insert into ll.secrets (game, cut_deck) values (gid, ll.shuffled());
   return jsonb_build_object('id', gid, 'code', c);
 end $$;
 
@@ -392,7 +401,7 @@ end $$;
 
 create or replace function public.join_game(p_code text, p_name text, p_walker text)
 returns jsonb language plpgsql security definer set search_path = '' as $$
-declare g public.games; uid uuid := auth.uid(); d text[]; ca text; cb text;
+declare g public.games; uid uuid := auth.uid();
 begin
   if uid is null then raise exception 'Not signed in'; end if;
   select * into g from public.games where code = lower(trim(p_code)) for update;
@@ -400,18 +409,46 @@ begin
   if uid in (g.player_a, g.player_b) then return ll.state(g.id, uid); end if;
   if g.player_b is not null then raise exception 'This game already has two players'; end if;
   perform ll.begin_move(g.id);
-  -- cut for deal: low card deals, cut again on a tie
-  loop
-    d := ll.shuffled(); ca := d[1]; cb := d[2];
-    exit when ll.r(ca) <> ll.r(cb);
-  end loop;
-  update public.games set player_b = uid, name_b = ll.clean_name(p_name), walker_b = ll.clean_walker(p_walker),
-    status = 'active', cut = jsonb_build_object('a', ca, 'b', cb), dealer = case when ll.r(ca) < ll.r(cb) then 'a' else 'b' end
+  update public.games set player_b = uid, name_b = ll.clean_name(p_name), walker_b = ll.clean_walker(p_walker), status = 'active'
   where id = g.id;
   perform ll.ev(g.id, jsonb_build_object('kind', 'joined'));
-  perform ll.log_move(g.id, 'b', 'join', jsonb_build_object('cut', jsonb_build_object('a', ca, 'b', cb)));
-  perform ll.deal_round(g.id);
+  perform ll.log_move(g.id, 'b', 'join', null);
+  -- the creator may have cut already; if not, they cut when they're next in
   return ll.state(g.id, uid);
+end $$;
+
+-- Cut for deal: each player picks a card from the spread (p_index counts from 0).
+-- Low card deals, aces low. Same rank and both cut again.
+create or replace function public.cut_for_deal(p_game uuid, p_index int)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare g public.games; me text; d text[]; i int; c text; ca text; cb text;
+begin
+  select * into g from public.games where id = p_game for update;
+  if not found then raise exception 'Game not found'; end if;
+  me := ll.side_of(g);
+  if me is null then raise exception 'Not your game'; end if;
+  if g.status = 'over' or g.phase <> 'cut' then raise exception 'The cut is done'; end if;
+  if g.cut ? me then raise exception 'You have already cut'; end if;
+  select cut_deck into d from ll.secrets where game = p_game;
+  i := greatest(0, least(coalesce(p_index, 0), cardinality(d) - 1)) + 1;
+  c := d[i];
+  perform ll.begin_move(p_game);
+  update ll.secrets set cut_deck = d[1:i - 1] || d[i + 1:] where game = p_game;
+  update public.games set cut = cut || jsonb_build_object(me, c) where id = p_game returning * into g;
+  perform ll.log_move(p_game, me, 'cut', jsonb_build_object('card', c));
+  perform ll.ev(p_game, jsonb_build_object('kind', 'cut', 'who', me, 'card', c));
+  if g.cut ? 'a' and g.cut ? 'b' then
+    ca := g.cut->>'a'; cb := g.cut->>'b';
+    if ll.r(ca) = ll.r(cb) then
+      update public.games set cut = '{}', cut_tie = g.cut where id = p_game;
+      update ll.secrets set cut_deck = ll.shuffled() where game = p_game;
+      perform ll.ev(p_game, jsonb_build_object('kind', 'cut_tie', 'a', ca, 'b', cb));
+    else
+      update public.games set dealer = case when ll.r(ca) < ll.r(cb) then 'a' else 'b' end where id = p_game;
+      perform ll.deal_round(p_game);
+    end if;
+  end if;
+  return ll.state(p_game, auth.uid());
 end $$;
 
 create or replace function public.get_game(p_game uuid)
@@ -428,7 +465,9 @@ returns jsonb language sql stable security definer set search_path = '' as $$
       'theirs', case when s.me = 'a' then g.score_b else g.score_a end,
       'winner', g.winner, 'updated_at', g.updated_at,
       'turn', case
+        when g.phase = 'cut' and not (g.cut ? s.me) then 'you'
         when g.status = 'waiting' then 'join'
+        when g.phase = 'cut' then 'them'
         when g.status = 'over' then 'over'
         when g.phase = 'discard' then case when (g.discarded->>s.me)::boolean then 'them' else 'you' end
         when g.phase = 'peg' then case when g.peg->>'turn' = s.me then 'you' else 'them' end
@@ -522,6 +561,7 @@ revoke all on function public.create_game(text, text) from public, anon;
 revoke all on function public.game_preview(text) from public, anon;
 revoke all on function public.join_game(text, text, text) from public, anon;
 revoke all on function public.get_game(uuid) from public, anon;
+revoke all on function public.cut_for_deal(uuid, int) from public, anon;
 revoke all on function public.my_games() from public, anon;
 revoke all on function public.discard_cards(uuid, text[]) from public, anon;
 revoke all on function public.play_card(uuid, text) from public, anon;
@@ -529,6 +569,7 @@ grant execute on function public.create_game(text, text) to authenticated;
 grant execute on function public.game_preview(text) to authenticated;
 grant execute on function public.join_game(text, text, text) to authenticated;
 grant execute on function public.get_game(uuid) to authenticated;
+grant execute on function public.cut_for_deal(uuid, int) to authenticated;
 grant execute on function public.my_games() to authenticated;
 grant execute on function public.discard_cards(uuid, text[]) to authenticated;
 grant execute on function public.play_card(uuid, text) to authenticated;

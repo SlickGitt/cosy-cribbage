@@ -5,7 +5,7 @@ import { compDiscard, compPeg, setLevel } from './ai.js';
 import { save, persist } from './save.js';
 import { recordGame, isUnlocked, howTo, award, discover, REWARDS, RANKS } from './unlocks.js';
 import { openCollection, applyGear, rewardIcon } from './collection.js';
-import { WALKERS, setPlayerWalker, walkerCanvas } from './walkers.js';
+import { WALKERS, setPlayerWalker, walkerCanvas, friendWalker } from './walkers.js';
 import { generateLane } from './lane.js';
 import { createScene } from './scene.js';
 import { initAudio, sfx, setMusic, setSound, settings } from './sound.js';
@@ -71,6 +71,7 @@ function startCut(){
  later(()=>{if(S.phase==='cutdeal'&&!S.cut.p)scene.say('Cut for deal, dear. Low card deals.');},700);
 }
 function cutAt(i){
+ if(ON)return cutOnline(i);
  const C=S.cut;if(S.phase!=='cutdeal'||C.p)return;
  C.p=C.deck.splice(i,1)[0];sfx('card');render();
  later(()=>{
@@ -87,9 +88,9 @@ function renderCut(){
  const spot=(label,card,who)=>`<div class="spot"><span class="tag">${label}</span><div class="cutspot">${card?cardHTML(card,{hl:C.done&&!C.tie&&C.winner===who}):`<div class="empty cutslot"></div>`}</div></div>`;
  const show=Math.min(C.deck.length,20);
  const mid=!C.p?`<div class="spread" style="--n:${show}">${Array.from({length:show},(_,i)=>`<button class="cutbtn" data-cut="${i}" aria-label="Cut the deck here">${backHTML()}</button>`).join('')}</div>`
-  :C.done?`<div class="panel countbox"><span class="label">${C.tie?'Same rank':'Low card deals'}</span><b>${C.tie?'Snap!':C.winner==='p'?'You':'Winnie'}</b><span class="note">${C.tie?'Cut again':C.winner==='p'?'You deal first':'Winnie deals first'}</span></div>`:'';
- $id('surfaceUI').innerHTML=`${spot("Winnie's cut",C.c,'c')}<div class="centre">${mid}</div>${spot('Your cut',C.p,'p')}`;
- const prompt=!C.p?'Cut the deck for first deal':!C.done?'Winnie is cutting':C.tie?'A tie, cutting again':C.winner==='p'?'Your card is lower, you deal':"Winnie's card is lower, she deals";
+  :C.done?`<div class="panel countbox"><span class="label">${C.tie?'Same rank':'Low card deals'}</span><b>${C.tie?'Snap!':C.winner==='p'?'You':NAME.c}</b><span class="note">${C.tie?'Cut again':C.winner==='p'?'You deal first':NAME.c+' deals first'}</span></div>`:'';
+ $id('surfaceUI').innerHTML=`${spot(their()+' cut',C.c,'c')}<div class="centre">${mid}</div>${spot('Your cut',C.p,'p')}`;
+ const prompt=!C.p?(C.retie?'Same rank, so cut again':'Cut the deck for first deal'):!C.done?(ON?`Waiting for ${NAME.c} to cut`:'Winnie is cutting'):C.tie?'A tie, cutting again':C.winner==='p'?'Your card is lower, you deal':ON?`${their()} card is lower, ${NAME.c} deals`:"Winnie's card is lower, she deals";
  $id('barUI').innerHTML=`<span class="prompt">${prompt}</span>${C.done&&!C.tie?'<button class="btn" data-act="deal">Deal</button>':''}`;
  $id('handUI').innerHTML='';
  $id('roundInfo').textContent='Cut for deal';
@@ -277,7 +278,7 @@ document.addEventListener('click',e=>{
  const b=e.target.closest('#surfaceUI button,#handUI button,#barUI button,#oppUI button');if(!b||b.disabled)return;
  const act=b.dataset.act;
  if(b.dataset.cut!==undefined)return cutAt(+b.dataset.cut);
- if(act==='deal')return startRound();
+ if(act==='deal')return ON?cutSeen():startRound();
  if(act==='discard')return confirmDiscard();
  if(act==='go')return sayGo();
  if(act==='next')return nextShow();
@@ -395,7 +396,7 @@ async function openOnline(id,first){
  closeOnline();gen++;paused=false;held=[];
  ON={id,me:null,ver:-1,g:null,busy:false,pending:null,replaying:false,unwatch:null,stopRound:null,showSeen:+(store.get('ll-seen-'+id)||0)};
  const mine=ON;
- hideTitle();document.body.classList.remove('walking','finished');document.body.classList.add('online');scene.setQuiet(true);WALKERS.c=WALKERS.bobble;
+ hideTitle();document.body.classList.remove('walking','finished');document.body.classList.add('online');scene.setQuiet(true);WALKERS.c=friendWalker('bobble',save.walker);
  try{
   const g=first||await net.getGame(id);
   if(!g)throw new Error("That game isn't available");
@@ -419,13 +420,15 @@ async function refresh(){
 function applyServer(g,animate){
  if(!ON||!g)return;
  if(ON.g&&g.version<=ON.ver)return;          // an older copy of what we already have
- if(ON.replaying){ON.pending=g;return;}       // finish counting the last round first
+ if(ON.replaying||ON.anim){if(!ON.pending||g.version>ON.pending.version)ON.pending=g;return;}  // finish what's on screen first
  const fresh=g.version===ON.ver+1;
  ON.ver=g.version;ON.g=g;
  const op=g.me==='a'?'b':'a';
- if(g['name_'+op]){NAME.c=safeName(g['name_'+op])||'Your friend';WALKERS.c=WALKERS[g['walker_'+op]]||WALKERS.bobble;}
+ if(g['name_'+op]){NAME.c=safeName(g['name_'+op])||'Your friend';WALKERS.c=friendWalker(g['walker_'+op],save.walker);}
  $id('name-c').textContent=g['name_'+op]?NAME.c:'Friend';
- if(g.show&&g.show.round>ON.showSeen&&(g.round>g.show.round||g.status==='over'))return replayShow(g,animate&&fresh);
+ const showDue=!!(g.show&&g.show.round>ON.showSeen&&(g.round>g.show.round||g.status==='over'));
+ if(animate&&fresh&&S.phase==='peg'&&S.peg&&(g.events||[]).some(e=>e.kind==='play'))return animatePeg(g,showDue);
+ if(showDue)return replayShow(g,true);
  buildState(g,animate&&fresh);
 }
 const sideOf=w=>w===ON.me?'p':'c';
@@ -440,8 +443,15 @@ function buildState(g,anim){
  S.crib=Array.from({length:g.crib_n},()=>null);
  S.kept=null;S.show=null;S.prompt='';S.oppN=null;S.peg=null;
  if(newRound){S.sel=[];if(g.round>0)log(`Round ${g.round}. ${S.dealer==='p'?'Your':their()} crib`);}
- if(g.status==='waiting'){S.phase='waiting';S.hand={p:[]};}
- else if(g.status==='over')return endOnline(g,anim);
+ S.cut=null;
+ const cutDone=g.round===1&&g.phase==='discard'&&g.cut[me]&&g.cut[op]&&!store.get('ll-cut-'+ON.id);
+ if(g.status==='over')return endOnline(g,anim);
+ else if(g.phase==='cut'&&(g.status==='waiting'&&g.cut[me])){S.phase='waiting';S.hand={p:[]};S.myCut=cardOf(g.cut[me]);}
+ else if(g.phase==='cut'){
+  S.phase='cutdeal';S.hand={p:[]};
+  S.cut={deck:Array(20),p:g.cut[me]?cardOf(g.cut[me]):null,c:g.cut[op]&&g.cut[me]?cardOf(g.cut[op]):null,done:false,tie:false,retie:!!g.cut_tie};
+ }
+ else if(cutDone){S.phase='cutdeal';S.hand={p:[]};S.cut={deck:[],p:cardOf(g.cut[me]),c:cardOf(g.cut[op]),done:true,tie:false,winner:sideOf(g.dealer)};}
  else if(g.phase==='discard'){
   S.hand={p:g.hand.map(cardOf)};S.oppN=g.opp_n;
   if(!g.discarded[me]){S.phase='discard';S.sel=(S.sel||[]).filter(id=>g.hand.includes(id));}
@@ -453,7 +463,7 @@ function buildState(g,anim){
   S.hand={p:S.peg.hand.p};
   if(S.peg.turn==='c')S.prompt=`${their()} turn`;
  }
- if(g.round===1&&g.cut&&!S.cutLogged){S.cutLogged=true;const a=cardOf(g.cut[me]),b=cardOf(g.cut[op]);log(`You cut ${cardName(a)}, ${NAME.c} cut ${cardName(b)}. ${S.dealer==='p'?'You deal':NAME.c+' deals'} first`);}
+ if(g.round===1&&g.cut[me]&&g.cut[op]&&!S.cutLogged){S.cutLogged=true;const a=cardOf(g.cut[me]),b=cardOf(g.cut[op]);log(`You cut ${cardName(a)}, ${NAME.c} cut ${cardName(b)}. ${S.dealer==='p'?'You deal':NAME.c+' deals'} first`);}
  if(anim)playEvents(g.events,me);
  render();
 }
@@ -464,6 +474,8 @@ function playEvents(evs,me){
   const w=e.who?sideOf(e.who):null;
   if(e.kind==='joined'){toast(`${NAME.c} has joined. Let's walk!`);sfx('chime');}
   else if(e.kind==='discard'&&w==='c')log(`${NAME.c} sent two cards to the crib`);
+  else if(e.kind==='cut'){sfx('card');if(w==='c')log(`${NAME.c} has cut`);}
+  else if(e.kind==='cut_tie'){toast(`Snap! You both cut a ${cardName(cardOf(e.a)).split(' ')[0]}. Cut again.`);}
   else if(e.kind==='starter'){log(`Starter: ${cardName(cardOf(e.card))}`);sfx('card');}
   else if(e.kind==='play'){if(w==='c'){sfx('card');log(`${NAME.c} plays ${cardName(cardOf(e.card))}. Count ${e.count}`);}else log(`You play ${cardName(cardOf(e.card))}. Count ${e.count}`);
    if(S.peg&&S.peg.pile.some(x=>x.card.id===e.card))S.peg.fresh=e.card;}
@@ -473,10 +485,9 @@ function playEvents(evs,me){
  }
 }
 // Count the hands and crib from the round that just finished, then walk on.
-function replayShow(g,anim){
+function replayShow(g,pilePreview){
  const sh=g.show,me=g.me,op=me==='a'?'b':'a',L=sideOf;
- if(anim)playEvents(g.events.filter(e=>e.kind!=='show'),me);
- ON.replaying=true;ON.pending=null;ON.showRound=sh.round;
+ ON.replaying=true;ON.showRound=sh.round;const mine=ON;
  S.round=sh.round;S.dealer=L(sh.dealer);S.starter=cardOf(sh.starter);
  const from=sh.from?{p:sh.from[me],c:sh.from[op]}:{p:sh.before[me],c:sh.before[op]};
  S.from=from;S.score={p:sh.before[me],c:sh.before[op]};
@@ -484,14 +495,46 @@ function replayShow(g,anim){
  scene.setBanked(S.score);
  const steps=sh.steps.map(st=>({who:L(st.who),cards:st.cards.map(cardOf),crib:st.crib,
   res:{items:st.items.map(i=>({label:i.label,pts:i.pts,cards:i.cards.map(cardOf)})),total:st.total}}));
- S.kept={[steps[0].who]:steps[0].cards,[steps[1].who]:steps[1].cards};S.crib=steps[2].cards;
- S.peg=null;S.prompt='';S.oppN=null;S.phase='show';S.show={step:-1,steps};
- nextShow();
+ const count=()=>{if(ON!==mine)return;S.kept={[steps[0].who]:steps[0].cards,[steps[1].who]:steps[1].cards};S.crib=steps[2].cards;
+  S.peg=null;S.prompt='';S.oppN=null;S.phase='show';S.show={step:-1,steps};nextShow();};
+ const pg=sh.peg;
+ if(pilePreview&&pg&&pg.pile&&pg.pile.length){
+  S.phase='peg';S.hand={p:[]};S.oppN=0;S.crib=[null,null,null,null];
+  S.peg={count:pg.count,pile:pg.pile.map(x=>({card:cardOf(x.c),who:L(x.w)})),seq:[],spent:pg.spent,turn:null,go:{p:false,c:false},hand:{p:[],c:[]},busy:true,last:null,fresh:null};
+  S.prompt=`Round ${sh.round} pegging is done`;render();setTimeout(count,2200);
+ }else count();
 }
 function showDone(){
  markSeen(ON.showRound);ON.replaying=false;
- const g=ON.pending&&ON.pending.version>ON.g.version?ON.pending:ON.g;ON.pending=null;ON.g=g;ON.ver=g.version;
- buildState(g,false);
+ buildState(ON.g,false);flushPending();
+}
+function flushPending(){if(!ON||ON.anim||ON.replaying)return;const p=ON.pending;ON.pending=null;if(p&&p.version>ON.ver)applyServer(p,true);}
+// The end of a move, one step at a time: each card lands, points pop, Go is called,
+// and the stack stays in view before it's cleared or the hands are counted.
+async function animatePeg(g,showDue){
+ const mine=ON,P=S.peg,me=g.me;ON.anim=true;
+ const wait=ms=>new Promise(r=>setTimeout(r,ms)),alive=()=>ON===mine&&S.peg===P;
+ P.busy=true;S.prompt='';
+ for(const e of g.events){
+  if(!alive())return;
+  const w=e.who?sideOf(e.who):null;
+  if(e.kind==='play'){
+   const c=cardOf(e.card);
+   if(w==='c'){P.pile.push({card:c,who:'c'});P.hand.c.pop();sfx('card');log(`${NAME.c} plays ${cardName(c)}. Count ${e.count}`);}
+   else log(`You play ${cardName(c)}. Count ${e.count}`);
+   P.count=e.count;P.fresh=e.card;P.last=w;render();await wait(w==='c'?800:300);
+  }else if(e.kind==='pts'){
+   S.score[w]=Math.min(121,S.score[w]+e.pts);scene.setBanked(S.score);sfx('score',e.pts);log(`${NAME[w]}: ${e.label} for ${e.pts}`);
+   pop(`+${e.pts} ${e.label}`,'.pile',w);
+   if(w==='p'){if(e.label==='31')feat('thirtyone');if(e.label==='Pair royal')feat('pairroyal');if(e.label==='Double pair royal')feat('dpr');}
+   render();await wait(900);
+  }else if(e.kind==='go'){P.go[w]=true;sfx('go');log(`${w==='p'?'You say':NAME.c+' says'} Go`);pop('Go','.pile',w);render();await wait(900);}
+  else if(e.kind==='reset'){await wait(600);P.spent+=P.pile.length;P.pile=[];P.count=0;P.go={p:false,c:false};P.fresh=null;render();await wait(400);}
+ }
+ if(ON!==mine)return;
+ ON.anim=false;
+ if(showDue){S.prompt='Counting the hands';render();await wait(1400);if(ON!==mine)return;replayShow(g,false);}
+ else{buildState(g,false);flushPending();}
 }
 function endOnline(g,anim){
  const me=g.me;
@@ -501,6 +544,11 @@ function endOnline(g,anim){
  S.finished=false;log(`${S.winner==='p'?'You reach':NAME.c+' reaches'} home at 121`);render();
  later(()=>{document.body.classList.add('walking');scene.walk(S.score).then(()=>{if(S.phase!=='over')return;S.finished=true;finishGame();document.body.classList.remove('walking');document.body.classList.add('finished');render();});},1300);
 }
+function cutOnline(i){
+ if(ON.busy||!S.cut||S.cut.p)return;ON.busy=true;const mine=ON;sfx('card');
+ net.cutForDeal(mine.id,i).then(g=>{if(ON===mine)applyServer(g,true);}).catch(e=>{console.error(e);toast(e.message);refresh();}).finally(()=>{mine.busy=false;});
+}
+function cutSeen(){store.set('ll-cut-'+ON.id,'1');buildState(ON.g,false);}
 function discardOnline(){
  if(ON.busy)return;ON.busy=true;const ids=[...S.sel],mine=ON;
  sfx('card');S.hand.p=S.hand.p.filter(c=>!ids.includes(c.id));S.sel=[];S.phase='cut';S.prompt='Sending to the crib';S.crib=[...S.crib,null,null];render();
@@ -514,7 +562,7 @@ function playOnline(c){
 function renderWaiting(){
  const link=net.inviteLink(ON.g.code);
  $id('oppUI').innerHTML='';$id('handUI').innerHTML='';
- $id('surfaceUI').innerHTML=`<div class="centre"><div class="panel invite"><span class="label">Waiting for a friend. Send them this link</span><input class="invite-link" readonly value="${link}" aria-label="Invite link"><span class="row"><button class="btn" data-act="copylink">Copy link</button>${navigator.share?'<button class="btn ghost" data-act="sharelink">Share</button>':''}</span><span class="note">The game starts when they open it. Take your turns whenever suits you both.</span></div></div>`;
+ $id('surfaceUI').innerHTML=`<div class="centre"><div class="panel invite"><span class="label">${S.myCut?`You cut the ${cardName(S.myCut)}. `:''}Now send a friend this link</span><input class="invite-link" readonly value="${link}" aria-label="Invite link"><span class="row"><button class="btn" data-act="copylink">Copy link</button>${navigator.share?'<button class="btn ghost" data-act="sharelink">Share</button>':''}</span><span class="note">The game starts when they open it. Take your turns whenever suits you both.</span></div></div>`;
  $id('barUI').innerHTML='';
  $id('roundInfo').textContent='Friend game';
  for(const w of ['p','c']){$id('score-'+w).textContent=0;$id('gain-'+w).textContent='';}

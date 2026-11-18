@@ -25,6 +25,31 @@ for (const w of Object.values(WALKERS)) {
   w.seat = [...w.rows.slice(0, 15), `.${o}${L.repeat(6)}${o}.`, `${o}${B}${B}${L}${o}${o}${L}${B}${B}${o}`];
 }
 
+// Sitting with your back to us, at your side of the rug: the face and eyes become the
+// back of the head (fur for the animals, hair for everyone else).
+const HAIR = '#5A3A28';
+function skinLike(hex) {
+  const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  if (d < 0.05 || l < 0.62) return false;
+  const h = (((mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60) + 360) % 360;
+  return h >= 15 && h <= 45;
+}
+for (const w of Object.values(WALKERS)) {
+  if (w.back) continue;
+  w.pal.z = w.pal.z || HAIR;
+  const o = w.rows[0].replace(/\./g, '')[0] || w.rows[1].replace(/\./g, '')[0];
+  const skin = new Set(Object.keys(w.pal).filter((k) => skinLike(w.pal[k])));
+  const top = [...w.rows[2]].filter((k) => k !== '.' && k !== o && !skin.has(k));
+  const fur = top.find((k) => w.rows.slice(4, 7).some((r) => r.includes(k)));
+  const back = fur || (top.length ? 'z' : o);
+  w.back = w.seat.map((row, i) => {
+    if (i < 3 || i > 6) return row;
+    const ch = [...row], first = ch.findIndex((k) => k !== '.'), last = ch.length - 1 - [...ch].reverse().findIndex((k) => k !== '.');
+    return ch.map((k, j) => (skin.has(k) || (k === o && j > first && j < last)) ? back : k).join('');
+  });
+}
+
 export function setPlayerWalker(id) { WALKERS.p = WALKERS[id] || WALKERS.bobble; }
 
 // Draw a walker into a small canvas for menus. Locked ones are a dark silhouette.
@@ -34,4 +59,27 @@ export function walkerCanvas(id, locked = false) {
   const pal = locked ? Object.fromEntries(Object.keys(w.pal).map((k) => [k, '#1E1420'])) : w.pal;
   sprite(cv.getContext('2d'), w.rows, pal, 0, 0);
   return cv;
+}
+
+// Friend games: the other player's walker. If you both chose the same one, theirs gets
+// different clothes (skin, hair and outline stay the same) so you can tell who's who.
+export function friendWalker(id, mine) {
+  const w = WALKERS[id] && id !== 'winnie' ? WALKERS[id] : WALKERS.bobble;
+  if (w !== WALKERS[mine] && !(w === WALKERS.bobble && !WALKERS[mine])) return w;
+  const pal = {};
+  for (const [k, hex] of Object.entries(w.pal)) pal[k] = recolour(hex);
+  return { ...w, name: w.name + ' (friend)', pal };
+}
+function recolour(hex) {
+  const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  if (d < 0.12) return hex;                                  // greys, outline, white
+  let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h = (h * 60 + 360) % 360;
+  const s = d / (1 - Math.abs(2 * l - 1));
+  if (h >= 15 && h <= 45 && l > 0.62) return hex;            // skin
+  if (l < 0.3) return hex;                                   // dark hair, boots
+  const h2 = (h + 170) % 360, c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(((h2 / 60) % 2) - 1)), m = l - c / 2;
+  const [r2, g2, b2] = h2 < 60 ? [c, x, 0] : h2 < 120 ? [x, c, 0] : h2 < 180 ? [0, c, x] : h2 < 240 ? [0, x, c] : h2 < 300 ? [x, 0, c] : [c, 0, x];
+  return '#' + [r2, g2, b2].map((v) => Math.round((v + m) * 255).toString(16).padStart(2, '0')).join('').toUpperCase();
 }

@@ -56,6 +56,8 @@ let games = 0, rounds = 0, totalMoves = 0;
 for (let gi = 0; gi < 150; gi++) {
   const A = randomUUID(), B = randomUUID(), C = randomUUID();
   const { id, code } = await rpc(A, 'create_game', ['Jules', 'fox']);
+  const early = gi % 2 === 0;   // half the time the creator cuts before the friend joins
+  if (early) { const c0 = await rpc(A, 'cut_for_deal', [id, Math.floor(Math.random() * 25) - 2]); ok(c0.cut.a && !c0.cut.b && c0.phase === 'cut', 'early cut'); await fails(rpc(A, 'cut_for_deal', [id, 3]), 'cut twice'); }
   const pv = await rpc(B, 'game_preview', [code]);
   ok(pv.seat === 'open' && pv.host === 'Jules' && pv.id === null, 'preview');
   await rpc(B, 'join_game', [code, '  Sam   Smith ', 'badger; drop']);
@@ -67,7 +69,16 @@ for (let gi = 0; gi < 150; gi++) {
   await fails(as(A, 'select ll.shuffled()'), 'internal functions private');
   await fails(as(A, `update public.games set score_a=120 where id=$1`, [id]), 'no direct writes');
   let s = await rpc(A, 'get_game', [id]);
-  ok(s.name_b === 'Sam Smith' && s.walker_b === 'bobble' && s.status === 'active' && s.round === 1, 'joined state');
+  ok(s.phase === 'cut' && s.round === 0, 'join leaves the cut to the players');
+  ok((await rpc(A, 'my_games', []))[0].turn === (early ? 'them' : 'you'), 'list shows who still has to cut');
+  let ties = 0;
+  while (s.phase === 'cut') {
+    for (const [u, w] of [[A, 'a'], [B, 'b']]) { if (!s.cut[w]) s = await rpc(u, 'cut_for_deal', [id, Math.floor(Math.random() * 20)]); if (s.phase !== 'cut') break; }
+    if (s.phase === 'cut') { ties++; ok(s.cut_tie && s.cut_tie.a && s.cut_tie.b && Object.keys(s.cut).length === 0, 'tie resets the cut'); }
+  }
+  ok(s.round === 1 && s.dealer === (+s.cut.a.split('-')[0] < +s.cut.b.split('-')[0] ? 'a' : 'b'), 'low card deals');
+  await fails(rpc(A, 'cut_for_deal', [id, 0]), 'no cutting after the deal');
+  ok(s.name_b === 'Sam Smith' && s.walker_b === 'bobble' && s.status === 'active', 'joined state');
   ok(!('player_a' in s), 'player ids hidden');
   let lastRound = 0, guard = 0;
   const uidOf = { a: A, b: B };
@@ -103,6 +114,7 @@ for (let gi = 0; gi < 150; gi++) {
       const sh = s.show; const showPts = sh.steps.reduce((a, x) => a + x.total, 0);
       ok(sh.before.a + sh.before.b + showPts === s.from_a + s.from_b, 'show points added');
       ok(sh.steps[2].cards.length === 4 && sh.steps[0].cards.length === 4, 'show hands');
+      ok(sh.peg && Array.isArray(sh.peg.pile), 'show keeps the final pegging pile');
       ok(s.round === sh.round + 1 && s.dealer !== sh.dealer, 'next round dealt, dealer swaps');
     }
   }

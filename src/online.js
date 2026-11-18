@@ -56,6 +56,7 @@ export const preview = (code) => rpc('game_preview', { p_code: code });
 export const joinGame = (code, name, walker) => rpc('join_game', { p_code: code, p_name: name, p_walker: walker });
 export const getGame = (id) => rpc('get_game', { p_game: id });
 export const myGames = () => rpc('my_games');
+export const cutForDeal = (id, i) => rpc('cut_for_deal', { p_game: id, p_index: i });
 export const discard = (id, cards) => rpc('discard_cards', { p_game: id, p_cards: cards });
 export const playCard = (id, card) => rpc('play_card', { p_game: id, p_card: card });
 
